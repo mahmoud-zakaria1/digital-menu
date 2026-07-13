@@ -5,8 +5,8 @@
     - Dev dependencies
         - nodemon
 [+] Create express server - app.ts
-[-] Folder Structure
-[-] Database Setup
+[+] Folder Structure
+[+] Database Setup
 [-] Error Handling Setup (Global Error Handler)
 
 [-] API & Real-Time Creation
