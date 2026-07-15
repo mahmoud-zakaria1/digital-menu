@@ -1,23 +1,29 @@
-import express, { Request, Response } from "express";
-import dotenv from "dotenv";
+import express, { NextFunction, Request, Response } from "express";
 import { connectDB } from "./config/db.js";
-
-dotenv.config();
-
+import  config  from "./config/config.js";
+import globalErrorHandling from "./middlewares/globalErrorHandler.js";
+// import createHttpError from "http-errors";
 const app = express();
 
+const PORT = config.port;
 connectDB();
 
 app.use(express.json());
 
-app.use((req: Request, res: Response) => {
-  res
-    .status(404)
-    .json({ success: false, message: `Route ${req.originalUrl} not found` });
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+
+  // const err = createHttpError(404, "Something went wrong");
+  // throw err;
+  const error: any = new Error (`Route ${req.originalUrl} not found`)
+  error.statusCode = 404;
+  next(error);
 });
 
-const port = process.env.PORT || 8000;
+app.use(globalErrorHandling);
 
-app.listen(port, () => {
-  console.log(`🚀 Server is running on port ${port}`);
+// const port = process.env.PORT || 8000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
 });
