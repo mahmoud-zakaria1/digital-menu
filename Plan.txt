@@ -7,7 +7,7 @@
 [+] Create express server - app.ts
 [+] Folder Structure
 [+] Database Setup
-[-] Error Handling Setup (Global Error Handler)
+[+] Error Handling Setup (Global Error Handler)
 
 [-] API & Real-Time Creation
     - Auth API's (Authentication & Authorization)
