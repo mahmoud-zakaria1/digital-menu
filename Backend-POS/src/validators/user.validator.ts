@@ -8,3 +8,8 @@ export const registerValidate = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(["Admin", "Cashier", "Customer"]).default("Customer"),
 }); 
+
+export const loginValaidate = z.object({
+  email: z.string().email("Please provide a valid email adress"),
+  password: z.string().min(6, "Password must be at least 6 characters")
+})
