@@ -3,6 +3,7 @@ import { connectDB } from "./config/db.js";
 import config from "./config/config.js";
 import globalErrorHandling from "./middlewares/globalErrorHandler.js";
 import userRoute from "./routes/users.route.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
 
@@ -11,6 +12,7 @@ const PORT = config.port || 8000;
 connectDB();
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.use("/api/users", userRoute);
 

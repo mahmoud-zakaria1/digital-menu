@@ -12,7 +12,7 @@ const config = Object.freeze({
   port: Number(process.env.PORT) || 3000,
   databaseURI: process.env.MONGODB_URI || "mongodb://localhost:2701",
   nodeEnv: process.env.NODE_ENV || "development",
-  jwtSecret: process.env.JWT_SECRET as string,
+  jwtSecret: process.env.JWT_SECRET || "default_super_secret_key",
 });
 
 export default config;
