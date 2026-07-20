@@ -54,7 +54,7 @@ export const login = async function (
   try {
     const validateData = loginValaidate.parse(req.body);
 
-    const user = await User.findOne({ email: validateData.email });
+    const user = await User.findOne({ email: validateData.email }).select("+password");
 
     if (!user || !(await user.comparePassword(validateData.password))) {
       return res.status(401).json({ success: false, message: "Invalid Email or Password" });

@@ -1,12 +1,17 @@
 [+] Create Project Directory
+
 [+] Create a NPM Project and install all dependencies
     - dependencies
-        - express mongoose dotenv bcrypt jsonwebtoken socket.io
+        - express mongoose dotenv bcrypt jsonwebtoken socket.io zod
     - Dev dependencies
         - nodemon
+
 [+] Create express server - app.ts
+
 [+] Folder Structure
+
 [+] Database Setup
+
 [+] Error Handling Setup (Global Error Handler)
 
 [-] API & Real-Time Creation
@@ -14,7 +19,7 @@
         - Register (with password hashing)
         - Login (Generate JWT Token with user role)
         - Create Auth Middleware (Protect routes & check roles: Admin/Cashier/Customer)
-    
+
     - Category + Items API's
         - GET, POST, PUT, DELETE Menu Items
         - Apply Auth Middleware (Only Admin can POST/PUT/DELETE)
