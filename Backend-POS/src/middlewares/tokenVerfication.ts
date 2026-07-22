@@ -43,3 +43,21 @@ export const isVerifiedUser = async (
     next(error);
   }
 };
+
+
+export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+
+  if(!req.user) {
+    const error: any = new Error("You are not authenticated");
+    error.statusCode = 404;
+    next(error);
+  }
+
+  if(req.user.role !== "Admin") {
+    const error: any = new Error("Access Denied! Admins only.");
+    error.statusCode = 403;
+    next(error);
+  }
+
+  next();
+};
