@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import { ZodError, z } from "zod";
 import Order from "../models/order.schema.js";
-import Meal from "../models/meals.schema.js";
+import Meal from "../models/meal.schema.js";
 import {
   createOrderValidate,
   updateOrderStatusValidate,
