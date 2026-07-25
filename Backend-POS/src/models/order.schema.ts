@@ -1,18 +1,10 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { IOrder } from '../types/order.types.js';
 
-export interface IOrder extends Document {
-  user: mongoose.Types.ObjectId;
-  meals: { meal: mongoose.Types.ObjectId; quantity: number }[];
-  totalPrice: number;
-  address?: string;
-  phone: string;
-  status: "pending" | "preparing" | "completed" | "cancelled";
-}
 
 const orderSchema = new Schema<IOrder>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
-
     meals: [
       {
         meal: { type: Schema.Types.ObjectId, ref: "Meal", required: true },
