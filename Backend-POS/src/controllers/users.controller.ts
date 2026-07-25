@@ -23,6 +23,7 @@ export const register = async function (
     await newUser.save();
 
     return res.status(201).json({
+      success: true,
       message: "User Added Successfully",
       user: {
         id: newUser._id,
@@ -40,7 +41,11 @@ export const register = async function (
 
       return res
         .status(400)
-        .json({ message: "Validation Error", errors: formattedErrors });
+        .json({
+          success: false,
+          message: "Validation Error",
+          errors: formattedErrors,
+        });
     }
     next(error);
   }
@@ -54,26 +59,31 @@ export const login = async function (
   try {
     const validateData = loginValaidate.parse(req.body);
 
-    const user = await User.findOne({ email: validateData.email }).select("+password");
+    const user = await User.findOne({ email: validateData.email }).select(
+      "+password",
+    );
 
     if (!user || !(await user.comparePassword(validateData.password))) {
-      return res.status(401).json({ success: false, message: "Invalid Email or Password" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid Email or Password" });
     }
 
     const token = jwt.sign(
       { _id: user._id, phone: user.phone, email: user.email, role: user.role },
       config.jwtSecret,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
     res.cookie("accessToken", token, {
       maxAge: 1000 * 60 * 60 * 24,
       httpOnly: true,
-      sameSite: "none",
-      secure: true
-    })
+      sameSite: config.isProduction ? "none" : "lax",
+      secure: config.isProduction,
+    });
 
     return res.status(200).json({
+      success: true,
       message: "User Logged in Successfully",
       user: {
         id: user._id,
@@ -81,7 +91,6 @@ export const login = async function (
         phone: user.phone,
         email: user.email,
         role: user.role,
-        token: token,
       },
     });
   } catch (error: any) {
@@ -91,7 +100,7 @@ export const login = async function (
         message: err.message,
       }));
 
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
         message: "Validation Error",
         errors: formattedErrors,

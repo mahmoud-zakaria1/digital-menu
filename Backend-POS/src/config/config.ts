@@ -6,6 +6,7 @@ interface Config {
   databaseURI: string;
   nodeEnv: "development" | "production" | "test";
   jwtSecret: string;
+  isProduction: boolean;
 }
 
 const config = Object.freeze({
@@ -13,6 +14,7 @@ const config = Object.freeze({
   databaseURI: process.env.MONGODB_URI || "mongodb://localhost:2701",
   nodeEnv: process.env.NODE_ENV || "development",
   jwtSecret: process.env.JWT_SECRET || "default_super_secret_key",
+  isProduction: process.env.NODE_ENV === "production",
 });
 
 export default config;
