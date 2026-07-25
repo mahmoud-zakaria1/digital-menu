@@ -49,14 +49,34 @@ export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
 
   if(!req.user) {
     const error: any = new Error("You are not authenticated");
-    error.statusCode = 404;
-    next(error);
+    error.statusCode = 401;
+    return next(error);
   }
 
   if(req.user.role !== "Admin") {
     const error: any = new Error("Access Denied! Admins only.");
     error.statusCode = 403;
-    next(error);
+    return next(error);
+  }
+
+  next();
+};
+
+export const isAdminOrCashier = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if(!req.user) {
+    const error: any = new Error("You are not authenticated");
+    error.statusCode = 401;
+    return next(error);
+  }
+
+  if(req.user.role !== "Admin" && req.user.role !== "Cashier") {
+    const error: any = new Error("Access Denied! Admins or Cashiers only.",);
+    error.statusCode = 403;
+    return next(error);
   }
 
   next();
