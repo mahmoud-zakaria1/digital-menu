@@ -1,16 +1,49 @@
 import { Request, Response, NextFunction } from "express";
-import { ZodError } from "zod";
-import Meal from "../models/meals.schema.js";
+import { ZodError, z } from "zod";
+import Meal from "../models/meal.schema.js";
 import {
   createMealValidate,
   updateMealValidate,
 } from "../validators/meal.validator.js";
+import { IMealFields } from "../types/meal.types.js";
 
 const formatZodError = (error: ZodError) =>
   error.issues.map((err) => ({
     field: err.path.length > 0 ? err.path[0] : "field",
     message: err.message,
   }));
+
+type CreateMealInput = z.infer<typeof createMealValidate>;
+type UpdateMealInput = z.infer<typeof updateMealValidate>;
+
+const mapToMeatDocument = (input: CreateMealInput): IMealFields => {
+  const mealDoc: IMealFields = {
+    name: input.name,
+    price: input.price,
+    category: input.category,
+    isAvailable: input.isAvailable,
+  };
+
+  if (input.description) mealDoc.description = input.description;
+  if (input.image) mealDoc.image = input.image;
+
+  return mealDoc;
+};
+
+const mapToMeatUpdateDocument = (
+  input: UpdateMealInput,
+): Partial<IMealFields> => {
+  const mealDoc: Partial<IMealFields> = {}
+
+  if (input.name !== undefined) mealDoc.name = input.name;
+  if (input.description !== undefined) mealDoc.description = input.description;
+  if (input.price !== undefined) mealDoc.price = input.price;
+  if (input.category !== undefined) mealDoc.category = input.category;
+  if (input.image !== undefined) mealDoc.image = input.image;
+  if (input.isAvailable !== undefined) mealDoc.isAvailable = input.isAvailable;
+
+  return mealDoc;
+};
 
 export const createMeal = async (
   req: Request,
@@ -19,7 +52,9 @@ export const createMeal = async (
 ) => {
   try {
     const validatedData = createMealValidate.parse(req.body);
-    const newMeal = await Meal.create(validatedData);
+    const mealData = mapToMeatDocument(validatedData);
+
+    const newMeal = await Meal.create(mealData)
 
     return res.status(201).json({
       success: true,
@@ -90,8 +125,9 @@ export const updateMeal = async (
   try {
     const { id } = req.params;
     const validatedData = updateMealValidate.parse(req.body);
+    const updateData = mapToMeatUpdateDocument(validatedData);
 
-    const updateMeal = await Meal.findByIdAndUpdate(id, validatedData, {
+    const updateMeal = await Meal.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     });
