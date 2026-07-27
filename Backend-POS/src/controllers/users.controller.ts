@@ -3,7 +3,6 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { registerValidate } from "../validators/user.validator.js";
 import User from "../models/user.schema.js";
-import { ZodError } from "zod";
 import config from "../config/config.js";
 
 export const register = async function (
@@ -33,20 +32,6 @@ export const register = async function (
       },
     });
   } catch (error: any) {
-    if (error instanceof ZodError) {
-      const formattedErrors = error.issues.map((err: any) => ({
-        field: err.path && err.path.length > 0 ? err.path[0] : "field",
-        message: err.message,
-      }));
-
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Validation Error",
-          errors: formattedErrors,
-        });
-    }
     next(error);
   }
 };
@@ -94,18 +79,6 @@ export const login = async function (
       },
     });
   } catch (error: any) {
-    if (error instanceof ZodError) {
-      const formattedErrors = error.issues.map((err: any) => ({
-        field: err.path && err.path.length > 0 ? err.path[0] : "field",
-        message: err.message,
-      }));
-
-      return res.status(401).json({
-        success: false,
-        message: "Validation Error",
-        errors: formattedErrors,
-      });
-    }
     next(error);
   }
 };

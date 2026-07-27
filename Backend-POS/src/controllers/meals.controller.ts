@@ -1,17 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { ZodError, z } from "zod";
+import { z } from "zod";
 import Meal from "../models/meal.schema.js";
 import {
   createMealValidate,
   updateMealValidate,
 } from "../validators/meal.validator.js";
 import { IMealFields } from "../types/meal.types.js";
-
-const formatZodError = (error: ZodError) =>
-  error.issues.map((err) => ({
-    field: err.path.length > 0 ? err.path[0] : "field",
-    message: err.message,
-  }));
 
 type CreateMealInput = z.infer<typeof createMealValidate>;
 type UpdateMealInput = z.infer<typeof updateMealValidate>;
@@ -62,13 +56,6 @@ export const createMeal = async (
       data: newMeal,
     });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: formatZodError(error),
-      });
-    }
     next(error);
   }
 };
@@ -144,13 +131,6 @@ export const updateMeal = async (
       data: updateMeal,
     });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation Error",
-        errors: formatZodError(error),
-      });
-    }
     next(error);
   }
 };

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
-import { ZodError, z } from "zod";
+import { z } from "zod";
 import Order from "../models/order.schema.js";
 import Meal from "../models/meal.schema.js";
 import {
@@ -8,12 +8,6 @@ import {
   updateOrderStatusValidate,
 } from "../validators/order.validator.js";
 import { IOrderFields } from "../types/order.types.js";
-
-const formatZodError = (error: ZodError) =>
-  error.issues.map((err) => ({
-    field: err.path.length > 0 ? err.path[0] : "field",
-    message: err.message,
-  }));
 
 type CreateOrderInput = z.infer<typeof createOrderValidate>;
 
@@ -83,13 +77,6 @@ export const createOrder = async (
       data: newOrder,
     });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation Error",
-        errors: formatZodError(error),
-      });
-    }
     next(error);
   }
 };
@@ -182,13 +169,6 @@ export const updateOrder = async (
       data: order,
     });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation Error",
-        errors: formatZodError(error),
-      });
-    }
     next(error);
   }
 };
