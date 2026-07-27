@@ -1,13 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
-import { ZodError, z } from "zod";
+import { z } from "zod";
 import Table from "../models/table.schema.js";
 import {
   createTableValidate,
   updateTableValidate,
 } from "../validators/table.validator.js";
 import { ITableFields } from "../types/table.types.js";
-import { formatZodError } from "../utilis/formatZodError.js";
 
 type CreateTableInput = z.infer<typeof createTableValidate>;
 type UpdateTableInput = z.infer<typeof updateTableValidate>;
@@ -44,13 +43,6 @@ export const addTable = async (
       data: newTable,
     });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation Error",
-        errors: formatZodError(error),
-      });
-    }
     next(error);
   }
 };
@@ -118,13 +110,6 @@ export const updateTable = async (
       data: updatedTable,
     });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation Error",
-        errors: formatZodError(error),
-      });
-    }
     next(error);
   }
 };
