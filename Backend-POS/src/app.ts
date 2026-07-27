@@ -6,6 +6,7 @@ import globalErrorHandling from "./middlewares/globalErrorHandler.js";
 import userRouter from "./routes/users.route.js";
 import orderRouter from "./routes/orders.route.js";
 import mealRouter from "./routes/meals.route.js";
+import tableRouter from "./routes/table.route.js";
 import cookieParser from "cookie-parser";
 
 
@@ -27,6 +28,7 @@ app.use(cookieParser());
 app.use("/api/users", userRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/meals", mealRouter);
+app.use("/api/tables", tableRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const error: any = new Error(`Route ${req.originalUrl} not found`);
