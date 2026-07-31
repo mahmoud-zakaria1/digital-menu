@@ -6,7 +6,7 @@ import globalErrorHandling from "./middlewares/globalErrorHandler.js";
 import userRouter from "./routes/users.route.js";
 import orderRouter from "./routes/orders.route.js";
 import mealRouter from "./routes/meals.route.js";
-import tableRouter from "./routes/table.route.js";
+import tableRouter from "./routes/tables.route.js";
 import cookieParser from "cookie-parser";
 
 
