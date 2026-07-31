@@ -13,8 +13,8 @@ export const createOrderValidate = z.object({
   phone: z
     .string()
     .regex(/^\+?[1-9]\d{8,14}$/, "Please provide a valid phone number"),
-});
+}).strict();
 
 export const updateOrderStatusValidate = z.object({
   status: z.enum(["pending", "preparing", "completed", "cancelled"]),
-});
+}).strict();
