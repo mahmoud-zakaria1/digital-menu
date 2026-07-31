@@ -34,7 +34,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const error: any = new Error(`Route ${req.originalUrl} not found`);
   error.statusCode = 404;
   next(error); 
-});
+}); 
 
 app.use(globalErrorHandling);
 

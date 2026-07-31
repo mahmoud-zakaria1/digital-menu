@@ -10,7 +10,7 @@ import { IMealFields } from "../types/meal.types.js";
 type CreateMealInput = z.infer<typeof createMealValidate>;
 type UpdateMealInput = z.infer<typeof updateMealValidate>;
 
-const mapToMeatDocument = (input: CreateMealInput): IMealFields => {
+const mapToMealDocument = (input: CreateMealInput): IMealFields => {
   const mealDoc: IMealFields = {
     name: input.name,
     price: input.price,
@@ -24,7 +24,7 @@ const mapToMeatDocument = (input: CreateMealInput): IMealFields => {
   return mealDoc;
 };
 
-const mapToMeatUpdateDocument = (
+const mapToMealUpdateDocument = (
   input: UpdateMealInput,
 ): Partial<IMealFields> => {
   const mealDoc: Partial<IMealFields> = {}
@@ -46,7 +46,14 @@ export const createMeal = async (
 ) => {
   try {
     const validatedData = createMealValidate.parse(req.body);
-    const mealData = mapToMeatDocument(validatedData);
+    const mealData = mapToMealDocument(validatedData);
+
+    const isMealPresent = await Meal.findOne({ name: validatedData.name });
+    if(isMealPresent) {
+      const error: any = new Error("Meal already exists!");
+      error.statusCode = 400;
+      return next(error);
+    }
 
     const newMeal = await Meal.create(mealData)
 
@@ -112,7 +119,7 @@ export const updateMeal = async (
   try {
     const { id } = req.params;
     const validatedData = updateMealValidate.parse(req.body);
-    const updateData = mapToMeatUpdateDocument(validatedData);
+    const updateData = mapToMealUpdateDocument(validatedData);
 
     const updateMeal = await Meal.findByIdAndUpdate(id, updateData, {
       new: true,

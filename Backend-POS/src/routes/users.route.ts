@@ -8,7 +8,7 @@ const route = express.Router();
 route.post("/register", register);
 // Login API
 route.post("/login", login);
-
+// Profile API
 route.get("/profile", isVerifiedUser, (req, res) => {
   res.json({
     success: true,

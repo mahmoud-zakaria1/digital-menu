@@ -1,5 +1,5 @@
 import { IUser } from "../types/user.types.js";
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Model } from "mongoose";
 import bcrypt from "bcrypt";
 
 
