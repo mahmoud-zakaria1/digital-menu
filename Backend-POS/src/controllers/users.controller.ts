@@ -15,7 +15,9 @@ export const register = async function (
 
     const isUserPresent = await User.findOne({ email: validateData.email });
     if (isUserPresent) {
-      return res.status(400).json({ message: "User already exists!" });
+      const error: any = new Error("User already exists!");
+      error.statusCode = 400;
+      return next(error);
     }
 
     const newUser = new User(validateData);
