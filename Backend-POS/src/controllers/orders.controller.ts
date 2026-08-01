@@ -8,6 +8,7 @@ import {
   updateOrderStatusValidate,
 } from "../validators/order.validator.js";
 import { IOrderFields } from "../types/order.types.js";
+import { toObjectId } from "../utils/toObjectId.js";
 
 type CreateOrderInput = z.infer<typeof createOrderValidate>;
 
@@ -17,9 +18,9 @@ const mapToOrderDocument = (
   totalPrice: number,
 ): Omit<IOrderFields, "status"> => {
   const orderDoc: Omit<IOrderFields, "status"> = {
-    user: new Types.ObjectId(userId),
+    user: toObjectId(userId),
     meals: input.meals.map((item) => ({
-      meal: new Types.ObjectId(item.meal),
+      meal: toObjectId(item.meal),
       quantity: item.quantity,
     })),
     totalPrice,

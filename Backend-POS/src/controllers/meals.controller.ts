@@ -7,6 +7,7 @@ import {
 } from "../validators/meal.validator.js";
 import { IMealFields } from "../types/meal.types.js";
 import mongoose from "mongoose";
+import { toObjectId } from "../utils/toObjectId.js";
 
 type CreateMealInput = z.infer<typeof createMealValidate>;
 type UpdateMealInput = z.infer<typeof updateMealValidate>;
@@ -15,7 +16,7 @@ const mapToMealDocument = (input: CreateMealInput): IMealFields => {
   const mealDoc: IMealFields = {
     name: input.name,
     price: input.price,
-    category: new mongoose.Types.ObjectId(input.category),
+    category: toObjectId(input.category),
     isAvailable: input.isAvailable,
   };
 
@@ -33,9 +34,7 @@ const mapToMealUpdateDocument = (
   if (input.name !== undefined) mealDoc.name = input.name;
   if (input.description !== undefined) mealDoc.description = input.description;
   if (input.price !== undefined) mealDoc.price = input.price;
-  if (input.category !== undefined) {
-    mealDoc.category = new mongoose.Types.ObjectId(input.category)
-  }
+  if (input.category !== undefined) mealDoc.category = toObjectId(input.category);
   if (input.image !== undefined) mealDoc.image = input.image;
   if (input.isAvailable !== undefined) mealDoc.isAvailable = input.isAvailable;
 

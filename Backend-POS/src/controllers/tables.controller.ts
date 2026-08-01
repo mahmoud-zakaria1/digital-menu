@@ -7,6 +7,7 @@ import {
   updateTableValidate,
 } from "../validators/table.validator.js";
 import { ITableFields } from "../types/table.types.js";
+import { toObjectId } from "../utils/toObjectId.js";
 
 type CreateTableInput = z.infer<typeof createTableValidate>;
 type UpdateTableInput = z.infer<typeof updateTableValidate>;
@@ -88,9 +89,7 @@ export const updateTable = async (
     };
 
     if (validateData.orderId) {
-      updatePayload.currentOrder = new mongoose.Types.ObjectId(
-        validateData.orderId,
-      );
+      updatePayload.currentOrder = toObjectId(validateData.orderId);
     }
 
     const updatedTable = await Table.findByIdAndUpdate(id, updatePayload, {
@@ -122,7 +121,7 @@ export const deleteTable = async (
   try {
     const { id } = req.params;
 
-    if (typeof id !== "string" ||!mongoose.Types.ObjectId.isValid(id)) {
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
       const error: any = new Error("Invalid table id");
       error.statusCode = 400;
       return next(error);

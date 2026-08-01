@@ -6,7 +6,6 @@ import {
   deleteCategory,
 } from "../controllers/categories.controller.js";
 import { isVerifiedUser, isAdmin } from "../middlewares/tokenVerfication.js";
-import Category from "../models/category.schema.js";
 
 const categoryRouter = Router();
 
