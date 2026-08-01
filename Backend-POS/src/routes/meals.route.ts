@@ -1,6 +1,14 @@
 import { Router } from "express";
-import { createMeal, getAllMeals, getMealById, updateMeal, deleteMeal } from '../controllers/meals.controller.js';
+import {
+  createMeal,
+  getAllMeals,
+  getMealById,
+  updateMeal,
+  deleteMeal,
+} from "../controllers/meals.controller.js";
 import { isVerifiedUser, isAdmin } from "../middlewares/tokenVerfication.js";
+import Meal from "../models/meal.schema.js";
+
 
 const router = Router();
 

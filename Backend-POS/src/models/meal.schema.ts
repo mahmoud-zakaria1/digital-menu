@@ -1,4 +1,4 @@
-import mongoose, { Schema, Model } from "mongoose";
+import mongoose, { Schema, Model, Types } from "mongoose";
 import { IMeal } from "../types/meal.types.js";
 
 const mealSchema = new Schema<IMeal>(
@@ -18,7 +18,7 @@ const mealSchema = new Schema<IMeal>(
       min: [0, "Price cannot be nagative"],
     },
     category: {
-      type: String,
+      type: Types.ObjectId,
       required: [true, "Catagory is required"],
       trim: true,
     },

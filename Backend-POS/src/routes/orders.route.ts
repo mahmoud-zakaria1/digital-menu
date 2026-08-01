@@ -1,9 +1,19 @@
 import { Router } from "express";
-import { createOrder, getAllOrders, getOrderById, updateOrder, cancelOrder, deleteOrder } from "../controllers/orders.controller.js";
-import { isVerifiedUser, isAdmin, isAdminOrCashier } from "../middlewares/tokenVerfication.js";
+import {
+  createOrder,
+  getAllOrders,
+  getOrderById,
+  updateOrder,
+  cancelOrder,
+  deleteOrder,
+} from "../controllers/orders.controller.js";
+import {
+  isVerifiedUser,
+  isAdmin,
+  isAdminOrCashier,
+} from "../middlewares/tokenVerfication.js";
 
 const router = Router();
-
 
 router.post("/createOrder", isVerifiedUser, createOrder);
 router.put("/cancelOrder/:id", isVerifiedUser, cancelOrder);

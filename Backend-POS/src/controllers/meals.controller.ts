@@ -6,6 +6,7 @@ import {
   updateMealValidate,
 } from "../validators/meal.validator.js";
 import { IMealFields } from "../types/meal.types.js";
+import mongoose from "mongoose";
 
 type CreateMealInput = z.infer<typeof createMealValidate>;
 type UpdateMealInput = z.infer<typeof updateMealValidate>;
@@ -14,7 +15,7 @@ const mapToMealDocument = (input: CreateMealInput): IMealFields => {
   const mealDoc: IMealFields = {
     name: input.name,
     price: input.price,
-    category: input.category,
+    category: new mongoose.Types.ObjectId(input.category),
     isAvailable: input.isAvailable,
   };
 
@@ -32,7 +33,9 @@ const mapToMealUpdateDocument = (
   if (input.name !== undefined) mealDoc.name = input.name;
   if (input.description !== undefined) mealDoc.description = input.description;
   if (input.price !== undefined) mealDoc.price = input.price;
-  if (input.category !== undefined) mealDoc.category = input.category;
+  if (input.category !== undefined) {
+    mealDoc.category = new mongoose.Types.ObjectId(input.category)
+  }
   if (input.image !== undefined) mealDoc.image = input.image;
   if (input.isAvailable !== undefined) mealDoc.isAvailable = input.isAvailable;
 
@@ -76,7 +79,7 @@ export const getAllMeals = async (
     const { category } = req.query;
     const filter = category ? { category: String(category) } : {};
 
-    const meals = await Meal.find(filter).sort({ createdAt: -1 });
+    const meals = await Meal.find(filter).populate("category", "name").sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,

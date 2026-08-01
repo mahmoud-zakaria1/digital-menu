@@ -1,10 +1,10 @@
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 
 export interface IMealFields {
   name: string;
   description?: string;
   price: number;
-  category: string;
+  category: Types.ObjectId;
   image?: string;
   isAvailable: boolean;
 }
