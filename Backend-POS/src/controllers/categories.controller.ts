@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import mongoose, { NestedPaths } from "mongoose";
+import mongoose from "mongoose";
 import { z } from "zod";
 import Category from "../models/category.schema.js";
 import {
@@ -28,7 +28,6 @@ export const createCategory = async (
     const isCategoryPresent = await Category.findOne({
       name: validatedData.name,
     });
-
     if (isCategoryPresent) {
       const error: any = new Error("Category already exists");
       error.statusCode = 400;
@@ -57,7 +56,7 @@ export const getAllCategories = async (
     const { isActiveOnly } = req.query;
     const filter = isActiveOnly === "true" ? { isActive: true } : {};
 
-    const categories = Category.find(filter).sort({ name: 1 });
+    const categories = await Category.find(filter).sort({ name: 1 });
 
     return res.status(200).json({
       success: true,
@@ -91,12 +90,16 @@ export const updateCategory = async (
     if (validatedData.isActive !== undefined)
       updatePayload.isActive = validatedData.isActive;
 
-    const updateCategory = await Category.findByIdAndUpdate(id, updatePayload, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedCategory = await Category.findByIdAndUpdate(
+      id,
+      updatePayload,
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
-    if (!updateCategory) {
+    if (!updatedCategory) {
       const error: any = new Error("Category not found");
       error.statusCode = 404;
       return next(error);
@@ -105,7 +108,7 @@ export const updateCategory = async (
     return res.status(200).json({
       success: true,
       message: "Category updated successfully",
-      data: updateCategory,
+      data: updatedCategory,
     });
   } catch (error) {
     next(error);
@@ -120,14 +123,13 @@ export const deleteCategory = async (
   try {
     const { id } = req.params;
 
-    if (typeof id !== "string" || mongoose.Types.ObjectId.isValid(id)) {
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
       const error: any = new Error("Invalid category id");
       error.statusCode = 400;
       return next(error);
     }
 
     const category = await Category.findById(id);
-
     if (!category) {
       const error: any = new Error("Category not found");
       error.statusCode = 404;

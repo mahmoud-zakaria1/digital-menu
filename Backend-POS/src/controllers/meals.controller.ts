@@ -101,12 +101,12 @@ export const getMealById = async (
     if (!meal) {
       const error: any = new Error("Meal not found");
       error.statusCode = 404;
-      next(error);
+      return next(error);
     }
 
     return res.status(200).json({
       success: true,
-      date: meal,
+      data: meal,
     });
   } catch (error) {
     next(error);
@@ -123,12 +123,12 @@ export const updateMeal = async (
     const validatedData = updateMealValidate.parse(req.body);
     const updateData = mapToMealUpdateDocument(validatedData);
 
-    const updateMeal = await Meal.findByIdAndUpdate(id, updateData, {
+    const updatedMeal = await Meal.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     });
 
-    if (!updateMeal) {
+    if (!updatedMeal) {
       const error: any = new Error("Meal not found");
       error.statusCode = 404;
       return next(error);
@@ -137,7 +137,7 @@ export const updateMeal = async (
     res.status(200).json({
       success: true,
       message: "Meal updated successfully",
-      data: updateMeal,
+      data: updatedMeal,
     });
   } catch (error) {
     next(error);
@@ -151,9 +151,9 @@ export const deleteMeal = async (
 ) => {
   try {
     const { id } = req.params;
-    const deleteMeal = await Meal.findByIdAndDelete(id);
+    const deletedMeal = await Meal.findByIdAndDelete(id);
 
-    if (!deleteMeal) {
+    if (!deletedMeal) {
       const error: any = new Error("Meal not found");
       error.statusCode = 404;
       return next(error);

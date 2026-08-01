@@ -9,7 +9,12 @@ route.post("/register", register);
 // Login API
 route.post("/login", login);
 // Profile API
-route.get("/profile", isVerifiedUser, (req, res) => {
+route.get("/profile", isVerifiedUser, (req, res, next) => {
+  if (!req.user) {
+    const error: any = new Error("You are not authenticated");
+    (error as any).statusCode = 401;
+    return next(error);
+  }
   res.json({
     success: true,
     message: "Welcome to your profile",

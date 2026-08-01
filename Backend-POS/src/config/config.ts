@@ -9,10 +9,10 @@ interface Config {
   isProduction: boolean;
 }
 
-const config = Object.freeze({
+const config: Config = Object.freeze({
   port: Number(process.env.PORT) || 3000,
   databaseURI: process.env.MONGODB_URI || "mongodb://localhost:2701",
-  nodeEnv: process.env.NODE_ENV || "development",
+  nodeEnv: (process.env.NODE_ENV as Config["nodeEnv"]) || "development",
   jwtSecret: process.env.JWT_SECRET || "default_super_secret_key",
   isProduction: process.env.NODE_ENV === "production",
 });

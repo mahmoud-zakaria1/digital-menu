@@ -8,27 +8,19 @@ const mealSchema = new Schema<IMeal>(
       required: [true, "Meal name is required"],
       trim: true,
     },
-    description: {
-      type: String,
-      trim: true,
-    },
+    description: { type: String, trim: true },
     price: {
       type: Number,
       required: [true, "Price is required"],
-      min: [0, "Price cannot be nagative"],
+      min: [0, "Price cannot be negative"],
     },
     category: {
       type: Types.ObjectId,
-      required: [true, "Catagory is required"],
-      trim: true,
+      ref: "Category",
+      required: [true, "Category is required"],
     },
-    image: {
-      type: String,
-    },
-    isAvailable: {
-      type: Boolean,
-      default: true,
-    },
+    image: { type: String },
+    isAvailable: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

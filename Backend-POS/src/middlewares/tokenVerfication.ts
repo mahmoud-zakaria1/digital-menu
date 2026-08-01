@@ -3,14 +3,6 @@ import { Response, Request, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/user.schema.js";
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: any;
-    }
-  }
-}
-
 export const isVerifiedUser = async (
   req: Request,
   res: Response,

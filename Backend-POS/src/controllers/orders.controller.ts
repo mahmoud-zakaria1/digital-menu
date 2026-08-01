@@ -39,6 +39,13 @@ export const createOrder = async (
   next: NextFunction,
 ) => {
   try {
+
+    if (!req.user) {
+      const error: any = new Error("You are not authenticated");
+      error.statusCode = 401;
+      return next(error);
+    }
+
     const validatedData = createOrderValidate.parse(req.body);
     const userId = req.user._id;
 
@@ -180,6 +187,13 @@ export const cancelOrder = async (
   next: NextFunction,
 ) => {
   try {
+
+    if (!req.user) {
+      const error: any = new Error("You are not authenticated");
+      error.statusCode = 401;
+      return next(error);
+    }
+
     const { id } = req.params;
     const order = await Order.findById(id);
 
@@ -228,9 +242,9 @@ export const deleteOrder = async (
 ) => {
   try {
     const { id } = req.params;
-    const deleteOrder = await Order.findByIdAndDelete(id);
+    const deletedOrder = await Order.findByIdAndDelete(id);
 
-    if (!deleteOrder) {
+    if (!deletedOrder) {
       const error: any = new Error("Order not found");
       error.statusCode = 404;
       return next(error);
