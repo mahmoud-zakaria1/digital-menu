@@ -88,18 +88,20 @@ export const updateTable = async (
       status: validateData.status,
     };
 
+    if (validateData.orderId) {
+      updatePayload.currentOrder = toObjectId(validateData.orderId);
+    }
+
     const updateQuery: any = { $set: updatePayload };
 
     if (validateData.status === "Reserved") {
       updatePayload.reservedAt = validateData.reservedAt || new Date();
-    }
-
-    if (validateData.orderId) {
-      updateQuery.$unset = { resevedAt: "" };
+    } else {
+      updateQuery.$unset = { reservedAt: "" };
     }
 
     const updatedTable = await Table.findByIdAndUpdate(id, updateQuery, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 
