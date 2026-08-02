@@ -13,15 +13,15 @@ import {
   isAdminOrCashier,
 } from "../middlewares/tokenVerfication.js";
 
-const router = Router();
+const orderRouter = Router();
 
-router.post("/createOrder", isVerifiedUser, createOrder);
-router.put("/cancelOrder/:id", isVerifiedUser, cancelOrder);
+orderRouter.post("/createOrder", isVerifiedUser, createOrder);
+orderRouter.put("/cancelOrder/:id", isVerifiedUser, cancelOrder);
 
-router.get("/allOrders", isVerifiedUser, isAdminOrCashier, getAllOrders);
-router.get("/:id", isVerifiedUser, isAdminOrCashier, getOrderById);
-router.put("/updateOrder/:id", isVerifiedUser, isAdminOrCashier, updateOrder);
+orderRouter.get("/allOrders", isVerifiedUser, isAdminOrCashier, getAllOrders);
+orderRouter.get("/:id", isVerifiedUser, isAdminOrCashier, getOrderById);
+orderRouter.put("/updateOrder/:id", isVerifiedUser, isAdminOrCashier, updateOrder);
 
-router.delete("/deleteOrder/:id", isVerifiedUser, isAdmin, deleteOrder);
+orderRouter.delete("/deleteOrder/:id", isVerifiedUser, isAdmin, deleteOrder);
 
-export default router;
+export default orderRouter;

@@ -12,17 +12,17 @@ import {
   isAdminOrCashier,
 } from "../middlewares/tokenVerfication.js";
 
-const router = Router();
+const tableRouter = Router();
 
-router.post("/addTable", isVerifiedUser, isAdmin, addTable);
-router.get("/", isVerifiedUser, isAdminOrCashier, getTables);
-router.put("/updateTable/:id", isVerifiedUser, isAdminOrCashier, updateTable);
-router.delete("/deleteTable/:id", isVerifiedUser, isAdmin, deleteTable);
-router.put(
+tableRouter.post("/addTable", isVerifiedUser, isAdmin, addTable);
+tableRouter.get("/", isVerifiedUser, isAdminOrCashier, getTables);
+tableRouter.put("/updateTable/:id", isVerifiedUser, isAdminOrCashier, updateTable);
+tableRouter.delete("/deleteTable/:id", isVerifiedUser, isAdmin, deleteTable);
+tableRouter.put(
   "/cancelReservation/:id",
   isVerifiedUser,
   isAdminOrCashier,
   cancelReservation,
 );
 
-export default router;
+export default tableRouter;
