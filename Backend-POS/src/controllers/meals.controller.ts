@@ -7,6 +7,7 @@ import {
 } from "../validators/meal.validator.js";
 import { IMealFields } from "../types/meal.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
+import Category from "../models/category.schema.js";
 
 type CreateMealInput = z.infer<typeof createMealValidate>;
 type UpdateMealInput = z.infer<typeof updateMealValidate>;
@@ -48,7 +49,6 @@ export const createMeal = async (
 ) => {
   try {
     const validatedData = createMealValidate.parse(req.body);
-    const mealData = mapToMealDocument(validatedData);
 
     const isMealPresent = await Meal.findOne({ name: validatedData.name });
     if (isMealPresent) {
@@ -57,6 +57,14 @@ export const createMeal = async (
       return next(error);
     }
 
+    const categoryExists = await Category.findById(validatedData.category);
+    if (!categoryExists) {
+      const error: any = new Error("Category does not exist!");
+      error.statusCode = 400;
+      return next(error);
+    }
+
+    const mealData = mapToMealDocument(validatedData);
     const newMeal = await Meal.create(mealData);
 
     return res.status(201).json({
@@ -123,10 +131,19 @@ export const updateMeal = async (
   try {
     const { id } = req.params;
     const validatedData = updateMealValidate.parse(req.body);
+    if (validatedData.category !== undefined) {
+      const categoryExists = await Category.findById(validatedData.category);
+      if (!categoryExists) {
+        const error: any = new Error("Category does not exist!");
+        error.statusCode = 400;
+        return next(error);
+      }
+    }
+    
     const updateData = mapToMealUpdateDocument(validatedData);
 
     const updatedMeal = await Meal.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 

@@ -94,7 +94,7 @@ export const updateCategory = async (
       id,
       updatePayload,
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );
