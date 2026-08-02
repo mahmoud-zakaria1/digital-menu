@@ -11,4 +11,4 @@ export const createMealValidate = z
   })
   .strict();
 
-export const updateMealValidate = createMealValidate.partial();
+export const updateMealValidate = createMealValidate.partial().strict();

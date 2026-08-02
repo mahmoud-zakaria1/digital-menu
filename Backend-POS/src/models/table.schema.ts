@@ -14,6 +14,7 @@ const tableSchema = new Schema<ITable>(
       default: "Available",
     },
     currentOrder: { type: Schema.Types.ObjectId, ref: "Order" },
+    reservedAt: { type: Date },
   },
   { timestamps: true },
 );

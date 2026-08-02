@@ -36,16 +36,14 @@ export const isVerifiedUser = async (
   }
 };
 
-
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-
-  if(!req.user) {
+  if (!req.user) {
     const error: any = new Error("You are not authenticated");
     error.statusCode = 401;
     return next(error);
   }
 
-  if(req.user.role !== "Admin") {
+  if (req.user.role !== "Admin") {
     const error: any = new Error("Access Denied! Admins only.");
     error.statusCode = 403;
     return next(error);
@@ -59,14 +57,14 @@ export const isAdminOrCashier = (
   res: Response,
   next: NextFunction,
 ) => {
-  if(!req.user) {
+  if (!req.user) {
     const error: any = new Error("You are not authenticated");
     error.statusCode = 401;
     return next(error);
   }
 
-  if(req.user.role !== "Admin" && req.user.role !== "Cashier") {
-    const error: any = new Error("Access Denied! Admins or Cashiers only.",);
+  if (req.user.role !== "Admin" && req.user.role !== "Cashier") {
+    const error: any = new Error("Access Denied! Admins or Cashiers only.");
     error.statusCode = 403;
     return next(error);
   }

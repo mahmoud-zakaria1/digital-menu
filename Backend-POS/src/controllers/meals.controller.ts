@@ -6,7 +6,6 @@ import {
   updateMealValidate,
 } from "../validators/meal.validator.js";
 import { IMealFields } from "../types/meal.types.js";
-import mongoose from "mongoose";
 import { toObjectId } from "../utils/toObjectId.js";
 
 type CreateMealInput = z.infer<typeof createMealValidate>;
@@ -29,12 +28,13 @@ const mapToMealDocument = (input: CreateMealInput): IMealFields => {
 const mapToMealUpdateDocument = (
   input: UpdateMealInput,
 ): Partial<IMealFields> => {
-  const mealDoc: Partial<IMealFields> = {}
+  const mealDoc: Partial<IMealFields> = {};
 
   if (input.name !== undefined) mealDoc.name = input.name;
   if (input.description !== undefined) mealDoc.description = input.description;
   if (input.price !== undefined) mealDoc.price = input.price;
-  if (input.category !== undefined) mealDoc.category = toObjectId(input.category);
+  if (input.category !== undefined)
+    mealDoc.category = toObjectId(input.category);
   if (input.image !== undefined) mealDoc.image = input.image;
   if (input.isAvailable !== undefined) mealDoc.isAvailable = input.isAvailable;
 
@@ -51,13 +51,13 @@ export const createMeal = async (
     const mealData = mapToMealDocument(validatedData);
 
     const isMealPresent = await Meal.findOne({ name: validatedData.name });
-    if(isMealPresent) {
+    if (isMealPresent) {
       const error: any = new Error("Meal already exists!");
       error.statusCode = 400;
       return next(error);
     }
 
-    const newMeal = await Meal.create(mealData)
+    const newMeal = await Meal.create(mealData);
 
     return res.status(201).json({
       success: true,
@@ -78,7 +78,9 @@ export const getAllMeals = async (
     const { category } = req.query;
     const filter = category ? { category: String(category) } : {};
 
-    const meals = await Meal.find(filter).populate("category", "name").sort({ createdAt: -1 });
+    const meals = await Meal.find(filter)
+      .populate("category", "name")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -134,7 +136,7 @@ export const updateMeal = async (
       return next(error);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Meal updated successfully",
       data: updatedMeal,
@@ -159,9 +161,9 @@ export const deleteMeal = async (
       return next(error);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Meal deleted succefully",
+      message: "Meal deleted successfully",
     });
   } catch (error) {
     next(error);

@@ -1,5 +1,5 @@
 import dns from "dns";
-dns.setServers(["8.8.8.8", "1.1.1.1"]); 
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 dns.setDefaultResultOrder("ipv4first");
 
 import mongoose from "mongoose";
@@ -21,7 +21,7 @@ export const connectDB = async (retries = MAX_RETRIES): Promise<void> => {
     const err = error as Error;
     console.error(`❌ Database connection failed: ${err.message}`);
 
-    if( retries > 0 ) {
+    if (retries > 0) {
       console.log(`🔄 Retrying connection... (${retries} attempts left)`);
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       return connectDB(retries - 1);

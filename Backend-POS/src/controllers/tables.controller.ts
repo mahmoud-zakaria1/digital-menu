@@ -59,7 +59,7 @@ export const getTables = async (
       "status totalPrice",
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: tables,
     });
@@ -87,6 +87,10 @@ export const updateTable = async (
     const updatePayload: Partial<ITableFields> = {
       status: validateData.status,
     };
+
+    if (validateData.status === "Reserved") {
+      updatePayload.reservedAt = validateData.reservedAt || new Date();
+    }
 
     if (validateData.orderId) {
       updatePayload.currentOrder = toObjectId(validateData.orderId);

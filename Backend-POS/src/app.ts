@@ -10,7 +10,6 @@ import tableRouter from "./routes/tables.route.js";
 import categoryRouter from "./routes/categories.route.js";
 import cookieParser from "cookie-parser";
 
-
 const app = express();
 
 const PORT = config.port || 8000;
@@ -35,8 +34,8 @@ app.use("/api/categories", categoryRouter);
 app.use((req: Request, res: Response, next: NextFunction) => {
   const error: any = new Error(`Route ${req.originalUrl} not found`);
   error.statusCode = 404;
-  next(error); 
-}); 
+  next(error);
+});
 
 app.use(globalErrorHandling);
 

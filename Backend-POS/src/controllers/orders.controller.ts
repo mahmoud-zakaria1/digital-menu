@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import { Types } from "mongoose";
 import { z } from "zod";
 import Order from "../models/order.schema.js";
 import Meal from "../models/meal.schema.js";
@@ -39,7 +38,6 @@ export const createOrder = async (
   next: NextFunction,
 ) => {
   try {
-
     if (!req.user) {
       const error: any = new Error("You are not authenticated");
       error.statusCode = 401;
@@ -187,7 +185,6 @@ export const cancelOrder = async (
   next: NextFunction,
 ) => {
   try {
-
     if (!req.user) {
       const error: any = new Error("You are not authenticated");
       error.statusCode = 401;
