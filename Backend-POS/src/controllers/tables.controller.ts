@@ -88,15 +88,17 @@ export const updateTable = async (
       status: validateData.status,
     };
 
+    const updateQuery: any = { $set: updatePayload };
+
     if (validateData.status === "Reserved") {
       updatePayload.reservedAt = validateData.reservedAt || new Date();
     }
 
     if (validateData.orderId) {
-      updatePayload.currentOrder = toObjectId(validateData.orderId);
+      updateQuery.$unset = { resevedAt: "" };
     }
 
-    const updatedTable = await Table.findByIdAndUpdate(id, updatePayload, {
+    const updatedTable = await Table.findByIdAndUpdate(id, updateQuery, {
       new: true,
       runValidators: true,
     });
