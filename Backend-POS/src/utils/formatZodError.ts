@@ -1,7 +1,12 @@
 import { ZodError } from "zod";
 
-export const formatZodError = (error: ZodError) =>
+export interface IFormattedZodError {
+  field: string;
+  message: string;
+}
+
+export const formatZodError = (error: ZodError): IFormattedZodError[] =>
   error.issues.map((err) => ({
-    field: err.path.length > 0 ? err.path[0] : "field",
+    field: err.path.length > 0 ? err.path.join(".") : "field",
     message: err.message,
   }));
