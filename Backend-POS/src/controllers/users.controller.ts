@@ -1,4 +1,4 @@
-import { loginValaidate } from "../validators/user.validator.js";
+import { loginValidate } from "../validators/user.validator.js";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { registerValidate } from "../validators/user.validator.js";
@@ -44,7 +44,7 @@ export const login = async function (
   next: NextFunction,
 ) {
   try {
-    const validateData = loginValaidate.parse(req.body);
+    const validateData = loginValidate.parse(req.body);
 
     const user = await User.findOne({ email: validateData.email }).select(
       "+password",
