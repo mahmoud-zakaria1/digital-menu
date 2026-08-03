@@ -84,3 +84,26 @@ export const login = async function (
     next(error);
   }
 };
+
+export const getProfile = async function (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = await User.findById(req.user?._id);
+    if (!user) {
+      const error: any = new Error("You are not authenticated");
+      error.statusCode = 401;
+      return next(error);
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Welcome to your profile",
+      user: req.user,
+    });
+  }
+  catch (error: any) {
+    next(error);
+  }
+}
