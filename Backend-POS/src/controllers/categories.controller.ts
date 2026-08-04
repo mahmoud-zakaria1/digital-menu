@@ -7,6 +7,7 @@ import {
   updateCategoryValidate,
 } from "../validators/category.validator.js";
 import { ICategoryFields } from "../types/category.types.js";
+import { toObjectId } from "../utils/toObjectId.js";
 
 type CreateCategoryInput = z.infer<typeof createCategoryValidate>;
 type UpdateCategoryInput = z.infer<typeof updateCategoryValidate>;
@@ -73,12 +74,7 @@ export const updateCategory = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
-      const error: any = new Error("Invalid category id");
-      error.statusCode = 400;
-      return next(error);
-    }
+    const categoryId = toObjectId(req.params.id);
 
     const validatedData: UpdateCategoryInput = updateCategoryValidate.parse(
       req.body,
@@ -91,7 +87,7 @@ export const updateCategory = async (
       updatePayload.isActive = validatedData.isActive;
 
     const updatedCategory = await Category.findByIdAndUpdate(
-      id,
+      categoryId,
       updatePayload,
       {
         returnDocument: "after",
@@ -121,15 +117,9 @@ export const deleteCategory = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
+    const categoryId = toObjectId(req.params.id);
 
-    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
-      const error: any = new Error("Invalid category id");
-      error.statusCode = 400;
-      return next(error);
-    }
-
-    const category = await Category.findById(id);
+    const category = await Category.findById(categoryId);
     if (!category) {
       const error: any = new Error("Category not found");
       error.statusCode = 404;
@@ -137,7 +127,7 @@ export const deleteCategory = async (
     }
 
     const Meal = mongoose.model("Meal");
-    const mealsUsingCategory = await Meal.countDocuments({ category: id });
+    const mealsUsingCategory = await Meal.countDocuments({ category: categoryId });
 
     if (mealsUsingCategory > 0) {
       const error: any = new Error(
@@ -147,7 +137,7 @@ export const deleteCategory = async (
       return next(error);
     }
 
-    await Category.findByIdAndDelete(id);
+    await Category.findByIdAndDelete(categoryId);
 
     return res.status(200).json({
       success: true,
