@@ -57,9 +57,8 @@ export const createOrder = async (
     }
 
     let totalPrice = 0;
-    validatedData.meals.forEach((item) => {
+    for(const item of validatedData.meals) {
       const mealDoc = mealsFromDb.find((m) => m._id.toString() === item.meal);
-
       if (!mealDoc) {
         throw Object.assign(new Error(`Meal with id ${item.meal} not found`), {
           statusCode: 400,
@@ -67,7 +66,7 @@ export const createOrder = async (
       }
 
       totalPrice += mealDoc?.price * item.quantity;
-    });
+    }
 
     const orderData = mapToOrderDocument(
       validatedData,
@@ -112,8 +111,8 @@ export const getOrderById = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const order = await Order.findById(id)
+    const orderId = toObjectId(req.params.id);
+    const order = await Order.findById(orderId)
       .populate("user", "name")
       .populate("meals.meal", "name price");
 
@@ -145,10 +144,10 @@ export const updateOrder = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
+    const orderId = toObjectId(req.params.id);
     const validatedData = updateOrderStatusValidate.parse(req.body);
 
-    const order = await Order.findById(id);
+    const order = await Order.findById(orderId);
 
     if (!order) {
       const error: any = new Error("Order not found!");
@@ -191,8 +190,8 @@ export const cancelOrder = async (
       return next(error);
     }
 
-    const { id } = req.params;
-    const order = await Order.findById(id);
+    const orderId = toObjectId(req.params.id);
+    const order = await Order.findById(orderId);
 
     if (!order) {
       const error: any = new Error("Order not found");
@@ -238,8 +237,8 @@ export const deleteOrder = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const deletedOrder = await Order.findByIdAndDelete(id);
+    const orderId = toObjectId(req.params.id);
+    const deletedOrder = await Order.findByIdAndDelete(orderId);
 
     if (!deletedOrder) {
       const error: any = new Error("Order not found");
