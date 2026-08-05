@@ -105,8 +105,8 @@ export const getMealById = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const meal = await Meal.findById(id);
+    const mealId = toObjectId(req.params.id);
+    const meal = await Meal.findById(mealId);
 
     if (!meal) {
       const error: any = new Error("Meal not found");
@@ -129,7 +129,8 @@ export const updateMeal = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
+    const mealId = toObjectId(req.params.id);
+
     const validatedData = updateMealValidate.parse(req.body);
     if (validatedData.category !== undefined) {
       const categoryExists = await Category.findById(validatedData.category);
@@ -142,7 +143,7 @@ export const updateMeal = async (
     
     const updateData = mapToMealUpdateDocument(validatedData);
 
-    const updatedMeal = await Meal.findByIdAndUpdate(id, updateData, {
+    const updatedMeal = await Meal.findByIdAndUpdate(mealId, updateData, {
       returnDocument: "after",
       runValidators: true,
     });
@@ -169,8 +170,8 @@ export const deleteMeal = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const deletedMeal = await Meal.findByIdAndDelete(id);
+    const mealId = toObjectId(req.params.id);
+    const deletedMeal = await Meal.findByIdAndDelete(mealId);
 
     if (!deletedMeal) {
       const error: any = new Error("Meal not found");
