@@ -65,7 +65,7 @@ export const createOrder = async (
         });
       }
 
-      totalPrice += mealDoc?.price * item.quantity;
+      totalPrice += mealDoc.price * item.quantity;
     }
 
     const orderData = mapToOrderDocument(
