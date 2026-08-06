@@ -10,10 +10,13 @@ import { isVerifiedUser, isAdmin } from "../middlewares/tokenVerfication.js";
 
 const mealRouter = Router();
 
-mealRouter.post("/createMeal", isVerifiedUser, isAdmin, createMeal);
+// 1️⃣ Public Routes
 mealRouter.get("/", getAllMeals);
 mealRouter.get("/:id", getMealById);
-mealRouter.put("/updateMeal/:id", isVerifiedUser, isAdmin, updateMeal);
-mealRouter.delete("/deleteMeal/:id", isVerifiedUser, isAdmin, deleteMeal);
+
+// 2️⃣ Admin Only Routes
+mealRouter.post("/", isVerifiedUser, isAdmin, createMeal);
+mealRouter.put("/:id", isVerifiedUser, isAdmin, updateMeal);
+mealRouter.delete("/:id", isVerifiedUser, isAdmin, deleteMeal);
 
 export default mealRouter;
