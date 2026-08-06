@@ -15,13 +15,16 @@ import {
 
 const orderRouter = Router();
 
-orderRouter.post("/createOrder", isVerifiedUser, createOrder);
-orderRouter.put("/cancelOrder/:id", isVerifiedUser, cancelOrder);
+// 1️⃣ Customer Routes
+orderRouter.post("/", isVerifiedUser, createOrder);
+orderRouter.patch("/:id/cancel", isVerifiedUser, cancelOrder);
 
-orderRouter.get("/allOrders", isVerifiedUser, isAdminOrCashier, getAllOrders);
+// 2️⃣ Management & Cashier Routes
+orderRouter.get("/", isVerifiedUser, isAdminOrCashier, getAllOrders);
 orderRouter.get("/:id", isVerifiedUser, isAdminOrCashier, getOrderById);
-orderRouter.put("/updateOrder/:id", isVerifiedUser, isAdminOrCashier, updateOrder);
+orderRouter.patch("/:id/status", isVerifiedUser, isAdminOrCashier, updateOrder);
 
-orderRouter.delete("/deleteOrder/:id", isVerifiedUser, isAdmin, deleteOrder);
+// 3️⃣ Admin Only Routes
+orderRouter.delete("/:id", isVerifiedUser, isAdmin, deleteOrder);
 
 export default orderRouter;
