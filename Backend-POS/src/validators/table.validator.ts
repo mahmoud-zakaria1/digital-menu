@@ -12,7 +12,8 @@ export const createTableValidate = z
 export const updateTableValidate = z
   .object({
     status: z.enum(["Available", "Occupied", "Reserved"]),
-    orderId: z.string().optional(),
-    reservedAt: z.coerce.date().optional(),
+    orderId: z.string(),
+    reservedAt: z.coerce.date(),
   })
+  .partial()
   .strict();
