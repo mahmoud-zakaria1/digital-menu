@@ -14,15 +14,18 @@ import {
 
 const tableRouter = Router();
 
-tableRouter.post("/addTable", isVerifiedUser, isAdmin, addTable);
+// 1️⃣ Management & Cashier Routes
 tableRouter.get("/", isVerifiedUser, isAdminOrCashier, getTables);
-tableRouter.put("/updateTable/:id", isVerifiedUser, isAdminOrCashier, updateTable);
-tableRouter.delete("/deleteTable/:id", isVerifiedUser, isAdmin, deleteTable);
-tableRouter.put(
-  "/cancelReservation/:id",
+tableRouter.put("/:id", isVerifiedUser, isAdminOrCashier, updateTable);
+tableRouter.patch(
+  "/:id/cancel",
   isVerifiedUser,
   isAdminOrCashier,
   cancelReservation,
 );
+
+// 2️⃣ Admin Only Routes
+tableRouter.post("/", isVerifiedUser, isAdmin, addTable);
+tableRouter.delete("/:id", isVerifiedUser, isAdmin, deleteTable);
 
 export default tableRouter;
