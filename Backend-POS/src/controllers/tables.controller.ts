@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import mongoose from "mongoose";
 import { z } from "zod";
 import Table from "../models/table.schema.js";
 import {
@@ -74,33 +73,32 @@ export const updateTable = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
 
-    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
-      const error: any = new Error("Invalid table id");
-      error.statusCode = 400;
-      return next(error);
+    const tableId = toObjectId(req.params.id)
+
+    const validatedData: UpdateTableInput = updateTableValidate.parse(req.body);
+
+    const updatePayload: Partial<ITableFields> = {};
+
+    if(validatedData.status) {
+      updatePayload.status = validatedData.status;
     }
 
-    const validateData: UpdateTableInput = updateTableValidate.parse(req.body);
-
-    const updatePayload: Partial<ITableFields> = {
-      status: validateData.status,
-    };
-
-    if (validateData.orderId) {
-      updatePayload.currentOrder = toObjectId(validateData.orderId);
+    if (validatedData.orderId) {
+      updatePayload.currentOrder = toObjectId(validatedData.orderId);
     }
 
     const updateQuery: any = { $set: updatePayload };
 
-    if (validateData.status === "Reserved") {
-      updatePayload.reservedAt = validateData.reservedAt || new Date();
-    } else {
-      updateQuery.$unset = { reservedAt: "" };
+    if(validatedData.status) {
+      if(validatedData.status === "Reserved") {
+        updatePayload.reservedAt = validatedData.reservedAt || new Date();
+      } else {
+        updateQuery.$unset = { reservedAt: ""}
+      }
     }
 
-    const updatedTable = await Table.findByIdAndUpdate(id, updateQuery, {
+    const updatedTable = await Table.findByIdAndUpdate(tableId, updateQuery, {
       returnDocument: "after",
       runValidators: true,
     });
@@ -127,15 +125,10 @@ export const deleteTable = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
 
-    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
-      const error: any = new Error("Invalid table id");
-      error.statusCode = 400;
-      return next(error);
-    }
+    const tableId = toObjectId(req.params.id)
 
-    const table = await Table.findById(id);
+    const table = await Table.findById(tableId);
 
     if (!table) {
       const error: any = new Error("Table not found");
@@ -151,7 +144,7 @@ export const deleteTable = async (
       return next(error);
     }
 
-    await Table.findByIdAndDelete(id);
+    await Table.findByIdAndDelete(tableId);
 
     return res.status(200).json({
       success: true,
@@ -168,15 +161,10 @@ export const cancelReservation = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
 
-    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
-      const error: any = new Error("Invalid table id");
-      error.statusCode = 400;
-      return next(error);
-    }
+    const tableId = toObjectId(req.params.id);
 
-    const table = await Table.findById(id);
+    const table = await Table.findById(tableId);
 
     if (!table) {
       const error: any = new Error("Table not found");
