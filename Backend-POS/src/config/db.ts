@@ -1,4 +1,5 @@
 import dns from "dns";
+// 1️⃣ Override DNS servers to prevent Atlas lookup timeouts on local networks
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 dns.setDefaultResultOrder("ipv4first");
 
@@ -8,6 +9,7 @@ import config from "./config.js";
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 3000;
 
+// 2️⃣ Database Connection with Retry Mechanism
 export const connectDB = async (retries = MAX_RETRIES): Promise<void> => {
   try {
     mongoose.set("strictQuery", false);

@@ -3,6 +3,7 @@ import { Response, Request, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/user.schema.js";
 
+// 1️⃣ Authentication Middleware
 export const isVerifiedUser = async (
   req: Request,
   res: Response,
@@ -36,6 +37,7 @@ export const isVerifiedUser = async (
   }
 };
 
+// 2️⃣ Admin Authorization Middleware
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
     const error: any = new Error("You are not authenticated");
@@ -52,6 +54,7 @@ export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+// 3️⃣ Admin or Cashier Authorization Middleware
 export const isAdminOrCashier = (
   req: Request,
   res: Response,
