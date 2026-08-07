@@ -11,6 +11,7 @@ import { toObjectId } from "../utils/toObjectId.js";
 
 type CreateOrderInput = z.infer<typeof createOrderValidate>;
 
+// Helper to map validated input and server-calculated price into an Order document
 const mapToOrderDocument = (
   input: CreateOrderInput,
   userId: string,
@@ -32,6 +33,7 @@ const mapToOrderDocument = (
   return orderDoc;
 };
 
+// 1️⃣ Create New Order (Calculates total price server-side to prevent tampering)
 export const createOrder = async (
   req: Request,
   res: Response,
@@ -47,6 +49,7 @@ export const createOrder = async (
     const validatedData = createOrderValidate.parse(req.body);
     const userId = req.user._id;
 
+    // Fetch all requested meals to ensure they exist and retrieve accurate prices
     const mealIds = validatedData.meals.map((m) => m.meal);
     const mealsFromDb = await Meal.find({ _id: { $in: mealIds } });
 
@@ -56,8 +59,9 @@ export const createOrder = async (
       return next(error);
     }
 
+    // Calculate total price on the server side
     let totalPrice = 0;
-    for(const item of validatedData.meals) {
+    for (const item of validatedData.meals) {
       const mealDoc = mealsFromDb.find((m) => m._id.toString() === item.meal);
       if (!mealDoc) {
         throw Object.assign(new Error(`Meal with id ${item.meal} not found`), {
@@ -86,6 +90,7 @@ export const createOrder = async (
   }
 };
 
+// 2️⃣ Get All Orders (Admin/Staff view with populated relations)
 export const getAllOrders = async (
   req: Request,
   res: Response,
@@ -105,6 +110,7 @@ export const getAllOrders = async (
   }
 };
 
+// 3️⃣ Get Single Order By ID
 export const getOrderById = async (
   req: Request,
   res: Response,
@@ -131,6 +137,7 @@ export const getOrderById = async (
   }
 };
 
+// State Machine rules for valid order status lifecycle transitions
 const ALLOWED_TRANSITION: Record<string, string[]> = {
   pending: ["preparing"],
   preparing: ["completed"],
@@ -138,6 +145,7 @@ const ALLOWED_TRANSITION: Record<string, string[]> = {
   cancelled: [],
 };
 
+// 4️⃣ Update Order Status (Enforces State Machine transitions)
 export const updateOrder = async (
   req: Request,
   res: Response,
@@ -155,6 +163,7 @@ export const updateOrder = async (
       return next(error);
     }
 
+    // Validate that status transition is allowed by the State Machine
     const allowedNextStatuses = ALLOWED_TRANSITION[order.status] || [];
 
     if (!allowedNextStatuses.includes(validatedData.status)) {
@@ -178,6 +187,7 @@ export const updateOrder = async (
   }
 };
 
+// 5️⃣ Cancel Order (Customer owner or Admin - only if order is still 'pending')
 export const cancelOrder = async (
   req: Request,
   res: Response,
@@ -199,6 +209,7 @@ export const cancelOrder = async (
       return next(error);
     }
 
+    // Authorization check: User must own the order or be an Admin
     const isOwner = order.user.toString() === req.user._id.toString();
     const isAdmin = req.user.role === "Admin";
 
@@ -210,6 +221,7 @@ export const cancelOrder = async (
       return next(error);
     }
 
+    // Prevent cancellation if the order has moved beyond 'pending'
     if (order.status !== "pending") {
       const error: any = new Error(
         `Cannot cancel order! it is already ${order.status}.`,
@@ -231,6 +243,7 @@ export const cancelOrder = async (
   }
 };
 
+// 6️⃣ Hard Delete Order (Admin only maintenance)
 export const deleteOrder = async (
   req: Request,
   res: Response,

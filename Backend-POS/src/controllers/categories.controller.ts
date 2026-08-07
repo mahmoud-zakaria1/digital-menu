@@ -12,12 +12,14 @@ import { toObjectId } from "../utils/toObjectId.js";
 type CreateCategoryInput = z.infer<typeof createCategoryValidate>;
 type UpdateCategoryInput = z.infer<typeof updateCategoryValidate>;
 
+// Helper to sanitize payload for category creation
 const mapToCategoryDocument = (
   input: CreateCategoryInput,
 ): Pick<ICategoryFields, "name"> => ({
   name: input.name,
 });
 
+// 1️⃣ Create New Category
 export const createCategory = async (
   req: Request,
   res: Response,
@@ -26,6 +28,7 @@ export const createCategory = async (
   try {
     const validatedData = createCategoryValidate.parse(req.body);
 
+    // Prevent duplicate category names
     const isCategoryPresent = await Category.findOne({
       name: validatedData.name,
     });
@@ -48,6 +51,7 @@ export const createCategory = async (
   }
 };
 
+// 2️⃣ Get All Categories (with optional active filter)
 export const getAllCategories = async (
   req: Request,
   res: Response,
@@ -68,6 +72,7 @@ export const getAllCategories = async (
   }
 };
 
+// 3️⃣ Update Existing Category
 export const updateCategory = async (
   req: Request,
   res: Response,
@@ -80,6 +85,7 @@ export const updateCategory = async (
       req.body,
     );
 
+    // Build dynamic payload to update only provided fields
     const updatePayload: Partial<ICategoryFields> = {};
     if (validatedData.name !== undefined)
       updatePayload.name = validatedData.name;
@@ -111,6 +117,7 @@ export const updateCategory = async (
   }
 };
 
+// 4️⃣ Delete Category (Prevents deletion if assigned to existing meals)
 export const deleteCategory = async (
   req: Request,
   res: Response,
@@ -126,8 +133,11 @@ export const deleteCategory = async (
       return next(error);
     }
 
+    // Check dependency in Meal model before deleting
     const Meal = mongoose.model("Meal");
-    const mealsUsingCategory = await Meal.countDocuments({ category: categoryId });
+    const mealsUsingCategory = await Meal.countDocuments({
+      category: categoryId,
+    });
 
     if (mealsUsingCategory > 0) {
       const error: any = new Error(

@@ -1,10 +1,13 @@
-import { loginValidate } from "../validators/user.validator.js";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { registerValidate } from "../validators/user.validator.js";
 import User from "../models/user.schema.js";
 import config from "../config/config.js";
+import {
+  registerValidate,
+  loginValidate,
+} from "../validators/user.validator.js";
 
+// 1️⃣ User Registration
 export const register = async function (
   req: Request,
   res: Response,
@@ -13,6 +16,7 @@ export const register = async function (
   try {
     const validateData = registerValidate.parse(req.body);
 
+    // Prevent duplicate user registration
     const isUserPresent = await User.findOne({ email: validateData.email });
     if (isUserPresent) {
       const error: any = new Error("User already exists!");
@@ -20,6 +24,7 @@ export const register = async function (
       return next(error);
     }
 
+    // Save triggers pre('save') hook to hash password
     const newUser = new User(validateData);
     await newUser.save();
 
@@ -38,6 +43,7 @@ export const register = async function (
   }
 };
 
+// 2️⃣ User Login & JWT Cookie Issuance
 export const login = async function (
   req: Request,
   res: Response,
@@ -46,6 +52,7 @@ export const login = async function (
   try {
     const validateData = loginValidate.parse(req.body);
 
+    // Expressly select +password field for verification
     const user = await User.findOne({ email: validateData.email }).select(
       "+password",
     );
@@ -56,12 +63,14 @@ export const login = async function (
         .json({ success: false, message: "Invalid Email or Password" });
     }
 
+    // Generate JWT access token
     const token = jwt.sign(
       { _id: user._id, phone: user.phone, email: user.email, role: user.role },
       config.jwtSecret,
       { expiresIn: "1d" },
     );
 
+    // Attach secure HTTP-only cookie
     res.cookie("accessToken", token, {
       maxAge: 1000 * 60 * 60 * 24,
       httpOnly: true,
@@ -85,6 +94,7 @@ export const login = async function (
   }
 };
 
+// 3️⃣ Get Current Authenticated User Profile
 export const getProfile = async function (
   req: Request,
   res: Response,
@@ -97,13 +107,13 @@ export const getProfile = async function (
       error.statusCode = 401;
       return next(error);
     }
+
     return res.status(200).json({
       success: true,
       message: "Welcome to your profile",
       user: req.user,
     });
-  }
-  catch (error: any) {
+  } catch (error: any) {
     next(error);
   }
-}
+};

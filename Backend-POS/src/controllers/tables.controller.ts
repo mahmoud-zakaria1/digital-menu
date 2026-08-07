@@ -11,12 +11,14 @@ import { toObjectId } from "../utils/toObjectId.js";
 type CreateTableInput = z.infer<typeof createTableValidate>;
 type UpdateTableInput = z.infer<typeof updateTableValidate>;
 
+// Helper to sanitize payload for table creation
 const mapToTableDocument = (
   input: CreateTableInput,
 ): Pick<ITableFields, "tableNo"> => ({
   tableNo: input.tableNo,
 });
 
+// 1️⃣ Add New Dining Table
 export const addTable = async (
   req: Request,
   res: Response,
@@ -25,6 +27,7 @@ export const addTable = async (
   try {
     const validateData = createTableValidate.parse(req.body);
 
+    // Prevent duplicate table numbers
     const isTablePresent = await Table.findOne({
       tableNo: validateData.tableNo,
     });
@@ -47,6 +50,7 @@ export const addTable = async (
   }
 };
 
+// 2️⃣ Get All Tables (Populates linked active order summary)
 export const getTables = async (
   req: Request,
   res: Response,
@@ -67,20 +71,20 @@ export const getTables = async (
   }
 };
 
+// 3️⃣ Update Table Status & Order Association
 export const updateTable = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-
-    const tableId = toObjectId(req.params.id)
+    const tableId = toObjectId(req.params.id);
 
     const validatedData: UpdateTableInput = updateTableValidate.parse(req.body);
 
     const updatePayload: Partial<ITableFields> = {};
 
-    if(validatedData.status) {
+    if (validatedData.status) {
       updatePayload.status = validatedData.status;
     }
 
@@ -90,11 +94,12 @@ export const updateTable = async (
 
     const updateQuery: any = { $set: updatePayload };
 
-    if(validatedData.status) {
-      if(validatedData.status === "Reserved") {
+    // Dynamically manage reservedAt field based on target status using $unset
+    if (validatedData.status) {
+      if (validatedData.status === "Reserved") {
         updatePayload.reservedAt = validatedData.reservedAt || new Date();
       } else {
-        updateQuery.$unset = { reservedAt: ""}
+        updateQuery.$unset = { reservedAt: "" };
       }
     }
 
@@ -119,14 +124,14 @@ export const updateTable = async (
   }
 };
 
+// 4️⃣ Delete Table (Guarded against active linked orders)
 export const deleteTable = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-
-    const tableId = toObjectId(req.params.id)
+    const tableId = toObjectId(req.params.id);
 
     const table = await Table.findById(tableId);
 
@@ -136,6 +141,7 @@ export const deleteTable = async (
       return next(error);
     }
 
+    // Block deletion if table has an unresolved order attached
     if (table.currentOrder) {
       const error: any = new Error(
         "Cannot delete table with an active order. Cancel or complete the order first.",
@@ -155,13 +161,13 @@ export const deleteTable = async (
   }
 };
 
+// 5️⃣ Cancel Reservation (Resets status to Available and removes reservation timestamp)
 export const cancelReservation = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-
     const tableId = toObjectId(req.params.id);
 
     const table = await Table.findById(tableId);

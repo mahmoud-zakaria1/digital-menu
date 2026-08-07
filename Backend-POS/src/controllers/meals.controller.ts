@@ -12,6 +12,7 @@ import Category from "../models/category.schema.js";
 type CreateMealInput = z.infer<typeof createMealValidate>;
 type UpdateMealInput = z.infer<typeof updateMealValidate>;
 
+// Helper to map validated input into a strict Meal document payload
 const mapToMealDocument = (input: CreateMealInput): IMealFields => {
   const mealDoc: IMealFields = {
     name: input.name,
@@ -26,6 +27,7 @@ const mapToMealDocument = (input: CreateMealInput): IMealFields => {
   return mealDoc;
 };
 
+// Helper to build dynamic payload for partial meal updates
 const mapToMealUpdateDocument = (
   input: UpdateMealInput,
 ): Partial<IMealFields> => {
@@ -42,6 +44,7 @@ const mapToMealUpdateDocument = (
   return mealDoc;
 };
 
+// 1️⃣ Create New Meal
 export const createMeal = async (
   req: Request,
   res: Response,
@@ -50,6 +53,7 @@ export const createMeal = async (
   try {
     const validatedData = createMealValidate.parse(req.body);
 
+    // Prevent duplicate meal names
     const isMealPresent = await Meal.findOne({ name: validatedData.name });
     if (isMealPresent) {
       const error: any = new Error("Meal already exists!");
@@ -57,6 +61,7 @@ export const createMeal = async (
       return next(error);
     }
 
+    // Ensure referenced category exists
     const categoryExists = await Category.findById(validatedData.category);
     if (!categoryExists) {
       const error: any = new Error("Category does not exist!");
@@ -77,6 +82,7 @@ export const createMeal = async (
   }
 };
 
+// 2️⃣ Get All Meals (with optional category filter and populated details)
 export const getAllMeals = async (
   req: Request,
   res: Response,
@@ -99,6 +105,7 @@ export const getAllMeals = async (
   }
 };
 
+// 3️⃣ Get Single Meal By ID
 export const getMealById = async (
   req: Request,
   res: Response,
@@ -123,6 +130,7 @@ export const getMealById = async (
   }
 };
 
+// 4️⃣ Update Meal Details
 export const updateMeal = async (
   req: Request,
   res: Response,
@@ -132,6 +140,8 @@ export const updateMeal = async (
     const mealId = toObjectId(req.params.id);
 
     const validatedData = updateMealValidate.parse(req.body);
+
+    // If category is being updated, ensure it exists in DB
     if (validatedData.category !== undefined) {
       const categoryExists = await Category.findById(validatedData.category);
       if (!categoryExists) {
@@ -140,7 +150,7 @@ export const updateMeal = async (
         return next(error);
       }
     }
-    
+
     const updateData = mapToMealUpdateDocument(validatedData);
 
     const updatedMeal = await Meal.findByIdAndUpdate(mealId, updateData, {
@@ -164,6 +174,7 @@ export const updateMeal = async (
   }
 };
 
+// 5️⃣ Delete Meal By ID
 export const deleteMeal = async (
   req: Request,
   res: Response,
