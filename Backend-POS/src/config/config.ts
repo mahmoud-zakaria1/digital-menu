@@ -7,6 +7,7 @@ interface Config {
   nodeEnv: "development" | "production" | "test";
   jwtSecret: string;
   isProduction: boolean;
+  frontendUrl: string;
 }
 
 const config: Config = Object.freeze({
@@ -15,6 +16,7 @@ const config: Config = Object.freeze({
   nodeEnv: (process.env.NODE_ENV as Config["nodeEnv"]) || "development",
   jwtSecret: process.env.JWT_SECRET || "default_super_secret_key",
   isProduction: process.env.NODE_ENV === "production",
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
 });
 
 export default config;
