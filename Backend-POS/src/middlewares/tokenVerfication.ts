@@ -2,6 +2,7 @@ import config from "../config/config.js";
 import { Response, Request, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/user.schema.js";
+import { IJwtPayload } from "../types/jwt.types.js";
 
 // 1️⃣ Authentication Middleware
 export const isVerifiedUser = async (
@@ -18,7 +19,7 @@ export const isVerifiedUser = async (
       return next(error);
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret) as { _id: string };
+    const decoded = jwt.verify(token, config.jwtSecret) as IJwtPayload;
 
     const user = await User.findById(decoded._id).select("-password");
 
