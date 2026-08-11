@@ -59,10 +59,15 @@ export const createOrder = async (
       return next(error);
     }
 
+    const mealsMap = new Map(
+      mealsFromDb.map((m) => [m._id.toString(), m]),
+    );
+
     // Calculate total price on the server side
     let totalPrice = 0;
     for (const item of validatedData.meals) {
-      const mealDoc = mealsFromDb.find((m) => m._id.toString() === item.meal);
+      const mealDoc = mealsMap.get(item.meal);
+
       if (!mealDoc) {
         throw Object.assign(new Error(`Meal with id ${item.meal} not found`), {
           statusCode: 400,
