@@ -8,6 +8,7 @@ import {
 } from "../validators/order.validator.js";
 import { IOrderFields } from "../types/order.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
+import { io } from "../app.js";
 
 type CreateOrderInput = z.infer<typeof createOrderValidate>;
 
@@ -84,6 +85,8 @@ export const createOrder = async (
     );
 
     const newOrder = await Order.create(orderData);
+
+    io.emit("new_order", newOrder);
 
     return res.status(201).json({
       success: true,
