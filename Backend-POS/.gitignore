@@ -1,8 +1,9 @@
 # Dependency directories
 node_modules/
 jspm_packages/
-test-socket-client.js
 
+# Temporary and test files
+test-socket-client.js
 
 # Build outputs
 dist/
