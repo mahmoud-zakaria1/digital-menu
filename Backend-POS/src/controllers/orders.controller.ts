@@ -41,12 +41,14 @@ export const createOrder = async (
   next: NextFunction,
 ) => {
   try {
+    // Authenticate user request
     if (!req.user) {
       const error: any = new Error("You are not authenticated");
       error.statusCode = 401;
       return next(error);
     }
 
+    // Validate request body schemas
     const validatedData = createOrderValidate.parse(req.body);
     const userId = req.user._id;
 
@@ -60,6 +62,7 @@ export const createOrder = async (
       return next(error);
     }
 
+    // Map DB meals for O(1) instant lookup
     const mealsMap = new Map(mealsFromDb.map((m) => [m._id.toString(), m]));
 
     // Calculate total price on the server side
@@ -76,6 +79,7 @@ export const createOrder = async (
       totalPrice += mealDoc.price * item.quantity;
     }
 
+    // Map order fields and persist to database
     const orderData = mapToOrderDocument(
       validatedData,
       userId.toString(),
@@ -84,6 +88,7 @@ export const createOrder = async (
 
     const newOrder = await Order.create(orderData);
 
+    // Broadcast new order event to all connected dashboard/kitchen clients
     io.emit("new_order", newOrder);
 
     return res.status(201).json({
@@ -180,9 +185,11 @@ export const updateOrder = async (
       return next(error);
     }
 
+    // Save updated status
     order.status = validatedData.status;
     await order.save();
 
+    // Emit status change event strictly to the specific order tracking room
     io.to(`order_${orderId}`).emit("status_changed", {
       orderId: order._id,
       status: order.status,
@@ -205,6 +212,7 @@ export const cancelOrder = async (
   next: NextFunction,
 ) => {
   try {
+    // Authenticate user
     if (!req.user) {
       const error: any = new Error("You are not authenticated");
       error.statusCode = 401;
@@ -241,9 +249,11 @@ export const cancelOrder = async (
       return next(error);
     }
 
+    // Update status to cancelled
     order.status = "cancelled";
     await order.save();
 
+    // Emit status change event to the specific order tracking room
     io.to(`order_${orderId}`).emit("status_changed", {
       orderId: order._id,
       status: order.status,
