@@ -45,7 +45,12 @@ app.use(globalErrorHandling);
 io.use(socketAuthMiddleware);
 
 io.on("connection", (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id}`);
+  console.log(`🔌 Socket connected: ${socket.id} _  User: ${socket.data.user?.name}`);
+
+  socket.on("track_order", (orderId: string) => {
+    socket.join(`order_${orderId}`);
+    console.log(`📦 Socket ${socket.id} joined room: order_${orderId}`)
+  })
 
   socket.on("disconnect", () => {
     console.log(`🔌 Socket disconnected: ${socket.id}`);

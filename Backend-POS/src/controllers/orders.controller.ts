@@ -60,9 +60,7 @@ export const createOrder = async (
       return next(error);
     }
 
-    const mealsMap = new Map(
-      mealsFromDb.map((m) => [m._id.toString(), m]),
-    );
+    const mealsMap = new Map(mealsFromDb.map((m) => [m._id.toString(), m]));
 
     // Calculate total price on the server side
     let totalPrice = 0;
@@ -185,6 +183,11 @@ export const updateOrder = async (
     order.status = validatedData.status;
     await order.save();
 
+    io.to(`order_${orderId}`).emit("status_changed", {
+      orderId: order._id,
+      status: order.status,
+    });
+
     return res.status(200).json({
       success: true,
       message: "Order status updated successfully",
@@ -240,6 +243,11 @@ export const cancelOrder = async (
 
     order.status = "cancelled";
     await order.save();
+
+    io.to(`order_${orderId}`).emit("status_changed", {
+      orderId: order._id,
+      status: order.status,
+    });
 
     return res.status(200).json({
       success: true,
