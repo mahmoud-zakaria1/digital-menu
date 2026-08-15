@@ -12,13 +12,19 @@ import tableRouter from "./routes/tables.route.js";
 import categoryRouter from "./routes/categories.route.js";
 import cookieParser from "cookie-parser";
 import { socketAuthMiddleware } from "./middlewares/socketAuth.js";
+import Order from "./models/order.schema.js";
 
 // Initialize Express app and HTTP server
 const app = express();
 const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
-  cors: { origin: config.frontendUrl, credentials: true },
+  cors: {
+    origin: config.frontendUrl,
+    credentials: true,
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 const PORT = config.port || 8000;
@@ -53,13 +59,41 @@ io.use(socketAuthMiddleware);
 
 // Socket.IO Connection & Events
 io.on("connection", (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id} _  User: ${socket.data.user?.name}`);
+  console.log(
+    `🔌 Socket connected: ${socket.id} _  User: ${socket.data.user?.name}`,
+  );
 
   // Join a specific order room for real-time tracking
-  socket.on("track_order", (orderId: string) => {
-    socket.join(`order_${orderId}`);
-    console.log(`📦 Socket ${socket.id} joined room: order_${orderId}`)
-  })
+  socket.on("track_order", async (orderId: string) => {
+    try {
+      const order = await Order.findById(orderId);
+
+      if (!order) {
+        socket.emit("track_order_error", "Order not found");
+        return;
+      }
+
+      // Check if current socket user is the order owner or staff member
+      const isOwner =
+        order.user.toString() === socket.data.user?._id.toString();
+      const isStaff =
+        socket.data.user?.role === "Admin" ||
+        socket.data.user?.role === "Cashier";
+
+      if (!isOwner && !isStaff) {
+        socket.emit(
+          "track_order_error",
+          "You are not authorized to track this order",
+        );
+        return;
+      }
+
+      socket.join(`order_${orderId}`);
+      console.log(`Socket ${socket.id} joined room: order_${orderId}`);
+    } catch (error) {
+      socket.emit("track_order_error", "Invalid order Id");
+    }
+  });
 
   // Handle Socket disconnection
   socket.on("disconnect", () => {
