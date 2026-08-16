@@ -10,6 +10,7 @@ import orderRouter from "./routes/orders.route.js";
 import mealRouter from "./routes/meals.route.js";
 import tableRouter from "./routes/tables.route.js";
 import categoryRouter from "./routes/categories.route.js";
+import paymentRouter from "./routes/payments.route.js";
 import cookieParser from "cookie-parser";
 import { socketAuthMiddleware } from "./middlewares/socketAuth.js";
 import Order from "./models/order.schema.js";
@@ -43,6 +44,7 @@ app.use("/api/orders", orderRouter);
 app.use("/api/meals", mealRouter);
 app.use("/api/tables", tableRouter);
 app.use("/api/categories", categoryRouter);
+app.use("/api/payments", paymentRouter);
 
 // Handle 404 - Unmatched Routes
 app.use((req: Request, res: Response, next: NextFunction) => {
