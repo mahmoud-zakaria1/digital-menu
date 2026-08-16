@@ -8,6 +8,7 @@ import {
 import { IMealFields } from "../types/meal.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
 import Category from "../models/category.schema.js";
+import { assertExists } from "../utils/assertions.js";
 
 type CreateMealInput = z.infer<typeof createMealValidate>;
 type UpdateMealInput = z.infer<typeof updateMealValidate>;
@@ -115,11 +116,7 @@ export const getMealById = async (
     const mealId = toObjectId(req.params.id);
     const meal = await Meal.findById(mealId);
 
-    if (!meal) {
-      const error: any = new Error("Meal not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if (!assertExists(meal, "Meal", next)) return;
 
     return res.status(200).json({
       success: true,
@@ -158,11 +155,7 @@ export const updateMeal = async (
       runValidators: true,
     });
 
-    if (!updatedMeal) {
-      const error: any = new Error("Meal not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if (!assertExists(updateMeal, "Meal", next)) return;
 
     return res.status(200).json({
       success: true,
@@ -184,11 +177,7 @@ export const deleteMeal = async (
     const mealId = toObjectId(req.params.id);
     const deletedMeal = await Meal.findByIdAndDelete(mealId);
 
-    if (!deletedMeal) {
-      const error: any = new Error("Meal not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if(assertExists(deleteMeal, "Meal", next)) return;
 
     return res.status(200).json({
       success: true,

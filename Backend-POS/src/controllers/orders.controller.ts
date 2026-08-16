@@ -9,6 +9,7 @@ import {
 import { IOrderFields } from "../types/order.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
 import { io } from "../app.js";
+import { assertExists, assertUser } from "../utils/assertions.js";
 
 type CreateOrderInput = z.infer<typeof createOrderValidate>;
 
@@ -42,11 +43,7 @@ export const createOrder = async (
 ) => {
   try {
     // Authenticate user request
-    if (!req.user) {
-      const error: any = new Error("You are not authenticated");
-      error.statusCode = 401;
-      return next(error);
-    }
+    if(!assertUser(req.user, next)) return;
 
     // Validate request body schemas
     const validatedData = createOrderValidate.parse(req.body);
@@ -133,11 +130,7 @@ export const getOrderById = async (
       .populate("user", "name")
       .populate("meals.meal", "name price");
 
-    if (!order) {
-      const error: any = new Error("Order not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if (!assertExists(order, "Order", next)) return;
 
     return res.status(200).json({
       success: true,
@@ -168,11 +161,7 @@ export const updateOrder = async (
 
     const order = await Order.findById(orderId);
 
-    if (!order) {
-      const error: any = new Error("Order not found!");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if (!assertExists(order, "Order", next)) return;
 
     // Validate that status transition is allowed by the State Machine
     const allowedNextStatuses = ALLOWED_TRANSITION[order.status] || [];
@@ -213,20 +202,11 @@ export const cancelOrder = async (
 ) => {
   try {
     // Authenticate user
-    if (!req.user) {
-      const error: any = new Error("You are not authenticated");
-      error.statusCode = 401;
-      return next(error);
-    }
+    if (!assertUser(req.user, next)) return;
 
     const orderId = toObjectId(req.params.id);
     const order = await Order.findById(orderId);
-
-    if (!order) {
-      const error: any = new Error("Order not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if (!assertExists(order, "Order", next)) return;
 
     // Authorization check: User must own the order or be an Admin
     const isOwner = order.user.toString() === req.user._id.toString();
@@ -279,11 +259,7 @@ export const deleteOrder = async (
     const orderId = toObjectId(req.params.id);
     const deletedOrder = await Order.findByIdAndDelete(orderId);
 
-    if (!deletedOrder) {
-      const error: any = new Error("Order not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if(!assertExists(deleteOrder, "Order", next)) return;
 
     return res.status(200).json({
       success: true,

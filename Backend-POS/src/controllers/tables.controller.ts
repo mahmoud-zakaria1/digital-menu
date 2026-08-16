@@ -7,6 +7,7 @@ import {
 } from "../validators/table.validator.js";
 import { ITableFields } from "../types/table.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
+import { assertExists } from "../utils/assertions.js";
 
 type CreateTableInput = z.infer<typeof createTableValidate>;
 type UpdateTableInput = z.infer<typeof updateTableValidate>;
@@ -108,11 +109,7 @@ export const updateTable = async (
       runValidators: true,
     });
 
-    if (!updatedTable) {
-      const error: any = new Error("Table not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if (!assertExists(updateTable, "Table", next)) return;
 
     return res.status(200).json({
       success: true,
@@ -132,14 +129,9 @@ export const deleteTable = async (
 ) => {
   try {
     const tableId = toObjectId(req.params.id);
-
     const table = await Table.findById(tableId);
 
-    if (!table) {
-      const error: any = new Error("Table not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if(!assertExists(table, "Table", next)) return;
 
     // Block deletion if table has an unresolved order attached
     if (table.currentOrder) {
@@ -169,14 +161,9 @@ export const cancelReservation = async (
 ) => {
   try {
     const tableId = toObjectId(req.params.id);
-
     const table = await Table.findById(tableId);
 
-    if (!table) {
-      const error: any = new Error("Table not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if (!assertExists(table, "Table", next)) return;
 
     if (table.status !== "Reserved") {
       const error: any = new Error(

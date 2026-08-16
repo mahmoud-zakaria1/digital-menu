@@ -8,6 +8,7 @@ import {
 } from "../validators/category.validator.js";
 import { ICategoryFields } from "../types/category.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
+import { assertExists } from "../utils/assertions.js";
 
 type CreateCategoryInput = z.infer<typeof createCategoryValidate>;
 type UpdateCategoryInput = z.infer<typeof updateCategoryValidate>;
@@ -101,11 +102,7 @@ export const updateCategory = async (
       },
     );
 
-    if (!updatedCategory) {
-      const error: any = new Error("Category not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    if(!assertExists(updateCategory, "Category", next)) return;
 
     return res.status(200).json({
       success: true,
@@ -127,11 +124,8 @@ export const deleteCategory = async (
     const categoryId = toObjectId(req.params.id);
 
     const category = await Category.findById(categoryId);
-    if (!category) {
-      const error: any = new Error("Category not found");
-      error.statusCode = 404;
-      return next(error);
-    }
+    
+    if(!assertExists(category, "Categotory", next)) return;
 
     // Check dependency in Meal model before deleting
     const Meal = mongoose.model("Meal");
