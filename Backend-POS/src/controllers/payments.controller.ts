@@ -55,11 +55,29 @@ export const createPayment = async (
           payment_methods: [Number(config.paymobIntegrationId)],
           items: [],
           special_reference: order._id.toString(),
+          billing_data: {
+            first_name: "Customer",
+            last_name: "Name",
+            email: "customer@example.com",
+            phone_number: "+201000000000",
+            apartment: "NA",
+            floor: "NA",
+            street: "NA",
+            building: "NA",
+            shipping_method: "NA",
+            postal_code: "NA",
+            city: "Alexandria",
+            country: "EG",
+            state: "NA",
+          },
         }),
       },
     );
 
     if (!paymobResponse.ok) {
+      const errorBody = await paymobResponse.text();
+      console.error("Paymob error response:", errorBody);
+
       const error: any = new Error(
         "Failed to create payment intention with Paymob",
       );
@@ -67,7 +85,8 @@ export const createPayment = async (
       return next(error);
     }
 
-    const paymobData = (await paymobResponse.json()) as IPaymobIntentionResponse;
+    const paymobData =
+      (await paymobResponse.json()) as IPaymobIntentionResponse;
 
     const newPayment = await Payment.create({
       order: order._id,
