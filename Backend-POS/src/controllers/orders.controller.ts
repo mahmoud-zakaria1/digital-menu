@@ -10,6 +10,7 @@ import { IOrderFields } from "../types/order.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
 import { io } from "../app.js";
 import { assertExists, assertUser } from "../utils/assertions.js";
+import Payment from "../models/payment.schema.js";
 
 type CreateOrderInput = z.infer<typeof createOrderValidate>;
 
@@ -229,6 +230,13 @@ export const cancelOrder = async (
       return next(error);
     }
 
+    const existingPayment = await Payment.findOne({ order: orderId, status: "paid"});
+    if (existingPayment) {
+      const error: any = new Error("Cannot cancel an order that has already been paid");
+      error.statusCode = 400;
+      return next(error);
+    }
+
     // Update status to cancelled
     order.status = "cancelled";
     await order.save();
@@ -259,7 +267,7 @@ export const deleteOrder = async (
     const orderId = toObjectId(req.params.id);
     const deletedOrder = await Order.findByIdAndDelete(orderId);
 
-    if(!assertExists(deleteOrder, "Order", next)) return;
+    if(!assertExists(deletedOrder, "Order", next)) return;
 
     return res.status(200).json({
       success: true,

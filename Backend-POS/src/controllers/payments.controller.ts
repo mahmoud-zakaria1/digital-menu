@@ -7,6 +7,7 @@ import { IPaymobIntentionResponse } from "../types/paymob.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
 import config from "../config/config.js";
 import { assertUser, assertExists } from "../utils/assertions.js";
+import { io } from "../app.js";
 
 export const createPayment = async (
   req: Request,
@@ -141,6 +142,11 @@ export const paymobWebhook = async (
     payment.status = success ? "paid" : "failed";
     payment.paymobTransactionId = transactionId?.toString();
     await payment.save();
+
+    io.to(`order_{orderId}`).emit("payment_status_changed", {
+      orderId,
+      paymentStatus: payment.status,
+    });
 
     return res.status(200).json({ received: true });
   } catch (error) {
