@@ -1,44 +1,129 @@
-[+] Create Project Directory
+========================================
+DIGITAL MENU / POS SYSTEM - BACKEND PLAN
+========================================
 
-[+] Create a NPM Project and install all dependencies
+[✓] Create Project Directory
+[✓] Create a NPM Project and install all dependencies
     - dependencies
         - express mongoose dotenv bcrypt jsonwebtoken socket.io zod
+        - cors cookie-parser
     - Dev dependencies
-        - nodemon
+        - nodemon typescript tsx ts-node @types/*
+        - jest ts-jest supertest @types/jest @types/supertest
 
-[+] Create express server - app.ts
+[✓] Create express server - app.ts
+    - NOTE: refactored to separate app.ts (construction) from server.ts
+      (execution) to allow testing without side effects
 
-[+] Folder Structure
+[✓] Folder Structure
+    - controllers / routes / models / types / validators / middlewares / utils / tests
 
-[+] Database Setup
+[✓] Database Setup
+    - MongoDB Atlas connection with DNS override + retry logic
+      (handles intermittent ECONNREFUSED / TLS handshake timeouts)
 
-[+] Error Handling Setup (Global Error Handler)
+[✓] Error Handling Setup (Global Error Handler)
+    - Centralized handler covering: ZodError, Mongoose CastError,
+      Mongoose ValidationError, duplicate key (11000), generic errors
 
-[-] API & Real-Time Creation
+[✓] API & Real-Time Creation
     - Auth API's (Authentication & Authorization)
-        - Register (with password hashing)
-        - Login (Generate JWT Token with user role)
-        - Create Auth Middleware (Protect routes & check roles: Admin/Cashier/Customer)
+        [✓] Register (with password hashing via pre-save hook)
+        [✓] Login (JWT in httpOnly cookie, role included in payload)
+        [✓] Auth Middleware (isVerifiedUser, isAdmin, isAdminOrCashier)
+        [✓] Get Profile endpoint
 
-    - Category + Items API's
-        - GET, POST, PUT, DELETE Menu Items
-        - Apply Auth Middleware (Only Admin can POST/PUT/DELETE)
+    - Category API's (NOT in original plan - added for filtering)
+        [✓] GET (public), POST/PUT/DELETE (Admin only)
+        [✓] Delete protection (blocked if meals still reference it)
+
+    - Meals API's (renamed from "Items")
+        [✓] GET, POST, PUT, DELETE
+        [✓] Admin-only mutations, public read
+        [✓] References Category via ObjectId (not free-text string)
+        [✓] Duplicate name prevention
 
     - Table API's
-        - GET, POST Table
+        [✓] GET, POST, PUT, DELETE (expanded beyond original GET/POST-only plan)
+        [✓] Cancel Reservation endpoint (auto-manages reservedAt field)
+        [✓] Delete protection (blocked if table has active order)
 
     - Socket.io Setup (The Real-Time Engine)
-        - Initialize Socket.io server alongside Express
-        - Secure Socket Connection: Add Socket JWT Middleware (Authenticate handshake before connecting)
-        - Handle Connection Resilience (Auto-reconnect logic)
+        [✓] Initialize Socket.io server alongside Express (shared HTTP server)
+        [✓] Secure Socket Connection: JWT middleware on handshake
+            (manual cookie extraction - avoided 'cookie' package due to
+            moduleResolution:nodenext type incompatibility)
+        [✓] Room-based tracking (track_order) with ownership/role authorization
+        [✓] Connection Resilience: pingTimeout/pingInterval configured
+            (client-side reconnect logic deferred to frontend phase)
 
     - Order API's & Real-Time Flow
-        - POST Order (Customer places order -> Save to DB -> Emit "new_order" via Secure Socket to Admin/Cashier)
-        - GET Orders (Dashboard fetches initial orders + fallback mechanism on socket reconnect)
-        - PUT Order Status (Admin updates status -> Emit "status_changed" via Socket to specific Customer)
+        [✓] POST Order -> server-side price calculation (prevents tampering)
+            -> Save to DB -> emit "new_order" to all connected clients
+        [✓] GET Orders (all + by id)
+        [✓] PATCH Order Status -> enforces state machine
+            (pending -> preparing -> completed, cancelled is terminal)
+            -> emit "status_changed" to order-specific room
+        [✓] Cancel Order (owner or Admin, pending-only, blocked if already paid)
+        [✓] Delete Order (Admin only, hard delete)
 
-    - Payment Related API's (Razorpay)
-        - Create Payment Intent API (Secured)
-        - Setup Razorpay Webhook (Listen for successful payment -> Update DB -> Emit Real-time status to Dashboard)
+    - Payment Related API's
+        [✓] CHANGED FROM PLAN: Paymob instead of Razorpay
+            (Razorpay not available in Egypt market)
+        [✓] Create Payment Intention API (Paymob Intentions API, secured)
+        [✓] Paymob Webhook with HMAC signature verification + idempotency
+        [✓] emit "payment_status_changed" to order room on webhook confirmation
+        [✓] Order cancellation blocked once payment is confirmed
+        [✓] Tested end-to-end via ngrok (real Paymob test-mode checkout flow)
 
-[-] Deploy on AWS or DigitalOcean
+[✓] Testing
+    - NOT in original plan - added for portfolio quality
+    - Jest + Supertest + isolated Atlas test database
+    - Orders API integration tests: server-side price calc, strict
+      field rejection, state machine transitions
+
+[ ] README.md
+    - IN PROGRESS - documenting architecture decisions, setup instructions,
+      API overview, tech stack rationale
+
+[ ] Deploy
+    - CHANGED FROM PLAN: Railway first (quick deploy for job applications),
+      then AWS/DigitalOcean later once frontend is built (learning goal)
+
+========================================
+FRONTEND (not started yet)
+========================================
+[ ] React + Vite (deviating from original React/Next.js undecided plan -
+    following tutorial series which uses React + Redux)
+[ ] Connect to Backend APIs (all endpoints ready and tested via Postman)
+[ ] Socket.io client integration (reconnect + re-join tracked order rooms)
+
+========================================
+PHASE 2 / FUTURE IDEAS (documented, not built yet)
+========================================
+- Meal discounts / promotions
+    - Decision needed: percentage vs fixed amount
+    - Likely needs separate "Promotion" collection (with start/end dates)
+      rather than a static field on Meal, to support real time-limited offers
+- VIP / membership tiers
+    - Must be a separate field (e.g. membershipTier) - NOT mixed into
+      existing `role` field, which represents system permissions, not
+      marketing/loyalty status
+- Pagination on Order.find() / heavier list endpoints (not needed yet at
+  current scale, but noted as the real future bottleneck vs data structure)
+- Category existence check on Table.currentOrder reference (minor gap)
+
+========================================
+KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
+========================================
+- Auth: httpOnly cookies (not Bearer tokens) - correct choice since this
+  is a single web frontend talking to its own backend. Would add hybrid
+  Bearer support later if a mobile app or third-party API access is added.
+- All ObjectId string->ObjectId conversions go through a single
+  toObjectId() helper (validates + converts, throws 400 on invalid format)
+- All Zod validators use .strict() to reject unexpected fields
+  (e.g. blocks client-sent totalPrice tampering)
+- Global error handler is the single source of truth for error response
+  shape - controllers just call next(error)
+- assertUser / assertExists helper functions (TypeScript type predicates)
+  eliminate repeated null checks across controllers
