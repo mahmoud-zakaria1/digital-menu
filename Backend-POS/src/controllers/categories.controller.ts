@@ -102,7 +102,7 @@ export const updateCategory = async (
       },
     );
 
-    if(!assertExists(updateCategory, "Category", next)) return;
+    if(!assertExists(updatedCategory, "Category", next)) return;
 
     return res.status(200).json({
       success: true,
@@ -125,7 +125,7 @@ export const deleteCategory = async (
 
     const category = await Category.findById(categoryId);
     
-    if(!assertExists(category, "Categotory", next)) return;
+    if(!assertExists(category, "Category", next)) return;
 
     // Check dependency in Meal model before deleting
     const Meal = mongoose.model("Meal");

@@ -14,19 +14,23 @@ import cookieParser from "cookie-parser";
 import { socketAuthMiddleware } from "./middlewares/socketAuth.js";
 import Order from "./models/order.schema.js";
 
+// 1️⃣ Initialize Express App & HTTP Server
 const app = express();
 const httpServer = http.createServer(app);
 
+// 2️⃣ Initialize Socket.IO Server with CORS and Heartbeat Settings
 const io = new Server(httpServer, {
   cors: { origin: config.frontendUrl, credentials: true },
   pingTimeout: 60000,
   pingInterval: 25000,
 });
 
+// 3️⃣ Global Middlewares
 app.use(cors({ origin: config.frontendUrl, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// 4️⃣ API Routes Setup
 app.use("/api/users", userRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/meals", mealRouter);
@@ -34,21 +38,26 @@ app.use("/api/tables", tableRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/payments", paymentRouter);
 
+// 5️⃣ Catch-all 404 Handler for Unmatched Routes
 app.use((req: Request, res: Response, next: NextFunction) => {
   const error: any = new Error(`Route ${req.originalUrl} not found`);
   error.statusCode = 404;
   next(error);
 });
 
+// 6️⃣ Global Error Handler Middleware
 app.use(globalErrorHandling);
 
+// 7️⃣ Socket.IO Authentication Middleware
 io.use(socketAuthMiddleware);
 
+// 8️⃣ Socket.IO Connection & Real-time Events Handling
 io.on("connection", (socket) => {
   console.log(
     `Socket connected: ${socket.id} - User: ${socket.data.user?.name}`,
   );
 
+  // Real-time order tracking listener
   socket.on("track_order", async (orderId: string) => {
     try {
       const order = await Order.findById(orderId);
@@ -58,6 +67,7 @@ io.on("connection", (socket) => {
         return;
       }
 
+      // Check authorization: only order owner or staff (Admin/Cashier) can track
       const isOwner =
         order.user.toString() === socket.data.user?._id.toString();
       const isStaff =
@@ -72,6 +82,7 @@ io.on("connection", (socket) => {
         return;
       }
 
+      // Join room dedicated to this order for targeted broadcasts
       socket.join(`order_${orderId}`);
       console.log(`Socket ${socket.id} joined room: order_${orderId}`);
     } catch (error) {
@@ -79,6 +90,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Handle client disconnection
   socket.on("disconnect", () => {
     console.log(`Socket disconnected: ${socket.id}`);
   });

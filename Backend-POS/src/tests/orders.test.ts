@@ -2,12 +2,14 @@ import request from "supertest";
 import { app } from "../app.js";
 import { describe, beforeEach, it, expect } from "@jest/globals";
 
-describe("Orders API", () => {
+describe("Orders API Integration Tests", () => {
   let adminCookie: string;
   let customerCookie: string;
   let mealId: string;
 
+  // 1️⃣ Setup Test Data (Users, Cookies, Category, Meal) Before Each Test
   beforeEach(async () => {
+    // Register & Login Admin User
     await request(app).post("/api/users/register").send({
       name: "Admin User",
       email: "admin@test.com",
@@ -23,6 +25,7 @@ describe("Orders API", () => {
 
     adminCookie = adminLogin.headers["set-cookie"]?.[0] ?? "";
 
+    // Register & Login Customer User
     await request(app).post("/api/users/register").send({
       name: "Customer User",
       email: "customer@test.com",
@@ -37,6 +40,7 @@ describe("Orders API", () => {
 
     customerCookie = customerLogin.headers["set-cookie"]?.[0] ?? "";
 
+    // Seed Initial Category & Meal for Order Creation
     const categoryRes = await request(app)
       .post("/api/categories/")
       .set("Cookie", adminCookie)
@@ -54,6 +58,7 @@ describe("Orders API", () => {
     mealId = mealRes.body.data._id;
   });
 
+  // 2️⃣ Verify Server-side Price Calculation Security
   it("should calculate totalPrice on the server, ignoring any client-sent value", async () => {
     const res = await request(app)
       .post("/api/orders/")
@@ -64,9 +69,10 @@ describe("Orders API", () => {
       });
 
     expect(res.status).toBe(201);
-    expect(res.body.data.totalPrice).toBe(300);
+    expect(res.body.data.totalPrice).toBe(300); // 3 * 100 = 300
   });
 
+  // 3️⃣ Verify Rejection of Client-Injected Total Price Payload
   it("should reject request containing a client-sent totalPrice field", async () => {
     const res = await request(app)
       .post("/api/orders/")
@@ -74,12 +80,13 @@ describe("Orders API", () => {
       .send({
         meals: [{ meal: mealId, quantity: 1 }],
         phone: "+201234567890",
-        totalPrice: 1,
+        totalPrice: 1, // Tampered price field
       });
 
     expect(res.status).toBe(400);
   });
 
+  // 4️⃣ Verify Invalid Order Status Transition Workflow
   it("should reject invalid status transition (pending -> completed directly)", async () => {
     const orderRes = await request(app)
       .post("/api/orders/")
@@ -91,6 +98,7 @@ describe("Orders API", () => {
 
     const orderId = orderRes.body.data._id;
 
+    // Direct transition from 'pending' to 'completed' should fail
     const updateRes = await request(app)
       .patch(`/api/orders/${orderId}/status`)
       .set("Cookie", adminCookie)
@@ -99,6 +107,7 @@ describe("Orders API", () => {
     expect(updateRes.status).toBe(400);
   });
 
+  // 5️⃣ Verify Valid Sequential Order Status Transition
   it("should allow valid status transition (pending -> preparing)", async () => {
     const orderRes = await request(app)
       .post("/api/orders/")
@@ -110,6 +119,7 @@ describe("Orders API", () => {
 
     const orderId = orderRes.body.data._id;
 
+    // Valid transition from 'pending' to 'preparing'
     const updateRes = await request(app)
       .patch(`/api/orders/${orderId}/status`)
       .set("Cookie", adminCookie)

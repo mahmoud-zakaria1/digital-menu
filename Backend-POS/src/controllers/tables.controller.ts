@@ -109,7 +109,7 @@ export const updateTable = async (
       runValidators: true,
     });
 
-    if (!assertExists(updateTable, "Table", next)) return;
+    if (!assertExists(updatedTable, "Table", next)) return;
 
     return res.status(200).json({
       success: true,

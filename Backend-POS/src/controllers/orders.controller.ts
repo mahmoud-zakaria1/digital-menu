@@ -44,7 +44,7 @@ export const createOrder = async (
 ) => {
   try {
     // Authenticate user request
-    if(!assertUser(req.user, next)) return;
+    if (!assertUser(req.user, next)) return;
 
     // Validate request body schemas
     const validatedData = createOrderValidate.parse(req.body);
@@ -230,9 +230,14 @@ export const cancelOrder = async (
       return next(error);
     }
 
-    const existingPayment = await Payment.findOne({ order: orderId, status: "paid"});
+    const existingPayment = await Payment.findOne({
+      order: orderId,
+      status: "paid",
+    });
     if (existingPayment) {
-      const error: any = new Error("Cannot cancel an order that has already been paid");
+      const error: any = new Error(
+        "Cannot cancel an order that has already been paid",
+      );
       error.statusCode = 400;
       return next(error);
     }
@@ -267,7 +272,7 @@ export const deleteOrder = async (
     const orderId = toObjectId(req.params.id);
     const deletedOrder = await Order.findByIdAndDelete(orderId);
 
-    if(!assertExists(deletedOrder, "Order", next)) return;
+    if (!assertExists(deletedOrder, "Order", next)) return;
 
     return res.status(200).json({
       success: true,

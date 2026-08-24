@@ -6,6 +6,7 @@ import {
   registerValidate,
   loginValidate,
 } from "../validators/user.validator.js";
+import { assertUser, assertExists } from "../utils/assertions.js";
 
 // 1️⃣ User Registration
 export const register = async function (
@@ -101,17 +102,21 @@ export const getProfile = async function (
   next: NextFunction,
 ) {
   try {
-    const user = await User.findById(req.user?._id);
-    if (!user) {
-      const error: any = new Error("You are not authenticated");
-      error.statusCode = 401;
-      return next(error);
-    }
+    if (!assertUser(req.user, next)) return;
+
+    const user = await User.findById(req.user._id);
+    if (!assertExists(user, "User", next)) return;
 
     return res.status(200).json({
       success: true,
       message: "Welcome to your profile",
-      user: req.user,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
     });
   } catch (error: any) {
     next(error);

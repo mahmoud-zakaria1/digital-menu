@@ -155,7 +155,7 @@ export const updateMeal = async (
       runValidators: true,
     });
 
-    if (!assertExists(updateMeal, "Meal", next)) return;
+    if (!assertExists(updatedMeal, "Meal", next)) return;
 
     return res.status(200).json({
       success: true,
@@ -177,7 +177,7 @@ export const deleteMeal = async (
     const mealId = toObjectId(req.params.id);
     const deletedMeal = await Meal.findByIdAndDelete(mealId);
 
-    if(assertExists(deleteMeal, "Meal", next)) return;
+    if(!assertExists(deletedMeal, "Meal", next)) return;
 
     return res.status(200).json({
       success: true,

@@ -9,12 +9,14 @@ import config from "../config/config.js";
 import { assertUser, assertExists } from "../utils/assertions.js";
 import { io } from "../app.js";
 
+// 1️⃣ Create Paymob Payment Intention & Internal Payment Record
 export const createPayment = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
+    // Authenticated user assertion check
     if (!assertUser(req.user, next)) return;
 
     const validatedData = createPaymentValidate.parse(req.body);
@@ -23,7 +25,8 @@ export const createPayment = async (
     const order = await Order.findById(orderId);
     if (!assertExists(order, "Order", next)) return;
 
-    if (order.user.toString() !== order.user._id.toString()) {
+    // Authorization check: ensure logged-in user owns the order
+    if (order.user.toString() !== req.user._id.toString()) {
       const error: any = new Error(
         "You are not authorized to pay for this order",
       );
@@ -31,6 +34,7 @@ export const createPayment = async (
       return next(error);
     }
 
+    // Prevent duplicate payments for already fulfilled orders
     const existingPaidPayment = await Payment.findOne({
       order: orderId,
       status: "paid",
@@ -42,6 +46,7 @@ export const createPayment = async (
       return next(error);
     }
 
+    // Call Paymob Intentions API to create payment transaction session
     const paymobResponse = await fetch(
       "https://accept.paymob.com/v1/intention/",
       {
@@ -51,7 +56,7 @@ export const createPayment = async (
           Authorization: `Token ${config.paymobSecretkey}`,
         },
         body: JSON.stringify({
-          amount: Math.round(order.totalPrice * 100),
+          amount: Math.round(order.totalPrice * 100), // Convert amount to cents/piastres
           currency: "EGP",
           payment_methods: [Number(config.paymobIntegrationId)],
           items: [],
@@ -89,6 +94,7 @@ export const createPayment = async (
     const paymobData =
       (await paymobResponse.json()) as IPaymobIntentionResponse;
 
+    // Save initial pending payment state in database
     const newPayment = await Payment.create({
       order: order._id,
       amount: order.totalPrice,
@@ -109,6 +115,7 @@ export const createPayment = async (
   }
 };
 
+// 2️⃣ Handle Webhook Callbacks from Paymob
 export const paymobWebhook = async (
   req: Request,
   res: Response,
@@ -117,10 +124,11 @@ export const paymobWebhook = async (
   try {
     const payload = req.body;
 
+    // Verify HMAC signature to prevent forged webhook requests
     const isValid = verifyPaymobHmac(payload, req.query.hmac as string);
 
     if (!isValid) {
-      const error: any = new Error("Invalid HAMC signature");
+      const error: any = new Error("Invalid HMAC signature");
       error.statusCode = 401;
       return next(error);
     }
@@ -131,19 +139,18 @@ export const paymobWebhook = async (
 
     const payment = await Payment.findOne({ order: orderId });
 
-    if (!payment) {
+    // Acknowledge receipt if payment record doesn't exist or is already processed
+    if (!payment || payment.status === "paid") {
       return res.status(200).json({ received: true });
     }
 
-    if (payment.status === "paid") {
-      return res.status(200).json({ received: true });
-    }
-
+    // Update payment record with final status & transaction ID
     payment.status = success ? "paid" : "failed";
     payment.paymobTransactionId = transactionId?.toString();
     await payment.save();
 
-    io.to(`order_{orderId}`).emit("payment_status_changed", {
+    // Broadcast real-time payment status update to socket order room
+    io.to(`order_${orderId}`).emit("payment_status_changed", {
       orderId,
       paymentStatus: payment.status,
     });
@@ -154,9 +161,11 @@ export const paymobWebhook = async (
   }
 };
 
+// 3️⃣ Verify Paymob HMAC Signature (SHA-512)
 const verifyPaymobHmac = (payload: any, receivedHmac: string): boolean => {
   if (!receivedHmac) return false;
 
+  // Exact lexicographical key sequence required by Paymob HMAC spec
   const orderedFields = [
     payload.obj.amount_cents,
     payload.obj.created_at,
