@@ -168,7 +168,8 @@ export const paymobWebhook = async (
     // 🔄 Update corresponding Order status when payment succeeds
     if (success) {
       const order = await Order.findById(orderId);
-      if (order) {
+
+      if (order && order.status === "pending") {
         order.status = "preparing";
         await order.save();
 
