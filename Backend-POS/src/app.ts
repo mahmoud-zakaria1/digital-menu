@@ -57,6 +57,13 @@ io.on("connection", (socket) => {
     `Socket connected: ${socket.id} - User: ${socket.data.user?.name}`,
   );
 
+  // Automatically join authorized staff (Admin / Cashier) to staff_room for live order updates
+  const userRole = socket.data.user?.role;
+  if (userRole === "Admin" || userRole === "Cashier") {
+    socket.join("staff_room");
+    console.log(`Socket ${socket.id} joined room: staff_room`);
+  }
+
   // Real-time order tracking listener
   socket.on("track_order", async (orderId: string) => {
     try {
