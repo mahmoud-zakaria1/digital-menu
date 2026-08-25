@@ -6,6 +6,7 @@ const mealSchema = new Schema<IMeal>(
     name: {
       type: String,
       required: [true, "Meal name is required"],
+      unique: true,
       trim: true,
     },
     description: { type: String, trim: true },

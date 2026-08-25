@@ -34,6 +34,15 @@ export const createPayment = async (
       return next(error);
     }
 
+    // Prevent payment for cancelled or already completed orders
+    if (order.status === "cancelled" || order.status === "completed") {
+      const error: any = new Error(
+        `Cannot pay for an order that is already ${order.status}`,
+      );
+      error.statusCode = 400;
+      return next(error);
+    }
+
     // Prevent duplicate payments for already fulfilled orders
     const existingPaidPayment = await Payment.findOne({
       order: orderId,
@@ -59,7 +68,7 @@ export const createPayment = async (
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Token ${config.paymobSecretkey}`,
+          Authorization: `Token ${config.paymobSecretKey}`,
         },
         body: JSON.stringify({
           amount: Math.round(order.totalPrice * 100), // Convert amount to cents/piastres
@@ -160,7 +169,7 @@ export const paymobWebhook = async (
     if (success) {
       const order = await Order.findById(orderId);
       if (order) {
-        order.status = "preparing"; 
+        order.status = "preparing";
         await order.save();
 
         // Broadcast order status change to staff/kitchen dashboard

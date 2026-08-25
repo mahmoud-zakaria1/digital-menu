@@ -8,7 +8,7 @@ interface Config {
   jwtSecret: string;
   isProduction: boolean;
   frontendUrl: string;
-  paymobSecretkey: string;
+  paymobSecretKey: string;
   paymobIntegrationId: string;
   paymobHmacSecret: string;
 }
@@ -20,7 +20,7 @@ const config: Config = Object.freeze({
   jwtSecret: process.env.JWT_SECRET || "default_super_secret_key",
   isProduction: process.env.NODE_ENV === "production",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
-  paymobSecretkey: process.env.PAYMOB_SECRET_KEY || "",
+  paymobSecretKey: process.env.PAYMOB_SECRET_KEY || "",
   paymobIntegrationId: process.env.PAYMOB_INTEGRATION_ID || "",
   paymobHmacSecret: process.env.PAYMOB_HMAC_SECRET || "",
 });
