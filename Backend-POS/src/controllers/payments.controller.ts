@@ -46,6 +46,12 @@ export const createPayment = async (
       return next(error);
     }
 
+    // Extract real user details from req.user with fallbacks
+    const userFirstName = req.user.name?.split(" ")[0] || "Customer";
+    const userLastName = req.user.name?.split(" ").slice(1).join(" ") || "User";
+    const userEmail = req.user.email || "customer@example.com";
+    const userPhone = req.user.phone || "+201000000000";
+
     // Call Paymob Intentions API to create payment transaction session
     const paymobResponse = await fetch(
       "https://accept.paymob.com/v1/intention/",
@@ -62,10 +68,10 @@ export const createPayment = async (
           items: [],
           special_reference: order._id.toString(),
           billing_data: {
-            first_name: "Customer",
-            last_name: "Name",
-            email: "customer@example.com",
-            phone_number: "+201000000000",
+            first_name: userFirstName,
+            last_name: userLastName,
+            email: userEmail,
+            phone_number: userPhone,
             apartment: "NA",
             floor: "NA",
             street: "NA",
@@ -94,11 +100,12 @@ export const createPayment = async (
     const paymobData =
       (await paymobResponse.json()) as IPaymobIntentionResponse;
 
-    // Save initial pending payment state in database
+    // Save initial pending payment state in database including paymobIntentionId
     const newPayment = await Payment.create({
       order: order._id,
       amount: order.totalPrice,
       currency: "EGP",
+      paymobIntentionId: paymobData.id,
       status: "pending",
     });
 
@@ -161,7 +168,7 @@ export const paymobWebhook = async (
   }
 };
 
-// 3️⃣ Verify Paymob HMAC Signature (SHA-512)
+// 3️⃣ Verify Paymob HMAC Signature (SHA-512 with Timing-Safe Comparison)
 const verifyPaymobHmac = (payload: any, receivedHmac: string): boolean => {
   if (!receivedHmac) return false;
 
@@ -194,5 +201,13 @@ const verifyPaymobHmac = (payload: any, receivedHmac: string): boolean => {
     .update(orderedFields)
     .digest("hex");
 
-  return calculatedHmac === receivedHmac;
+  const calculatedBuffer = Buffer.from(calculatedHmac, "utf8");
+  const receivedBuffer = Buffer.from(receivedHmac, "utf8");
+
+  // timingSafeEqual requires buffers of identical length
+  if (calculatedBuffer.length !== receivedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(calculatedBuffer, receivedBuffer);
 };
