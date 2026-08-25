@@ -156,7 +156,22 @@ export const paymobWebhook = async (
     payment.paymobTransactionId = transactionId?.toString();
     await payment.save();
 
-    // Broadcast real-time payment status update to socket order room
+    // 🔄 Update corresponding Order status when payment succeeds
+    if (success) {
+      const order = await Order.findById(orderId);
+      if (order) {
+        order.status = "preparing"; 
+        await order.save();
+
+        // Broadcast order status change to staff/kitchen dashboard
+        io.to("staff_room").emit("order_status_changed", {
+          orderId,
+          status: order.status,
+        });
+      }
+    }
+
+    // Broadcast real-time payment status update to specific order room
     io.to(`order_${orderId}`).emit("payment_status_changed", {
       orderId,
       paymentStatus: payment.status,
