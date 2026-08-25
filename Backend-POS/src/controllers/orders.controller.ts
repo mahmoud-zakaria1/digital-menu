@@ -5,6 +5,7 @@ import Meal from "../models/meal.schema.js";
 import {
   createOrderValidate,
   updateOrderStatusValidate,
+  getOrdersQueryValidate,
 } from "../validators/order.validator.js";
 import { IOrderFields } from "../types/order.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
@@ -99,20 +100,59 @@ export const createOrder = async (
   }
 };
 
-// 2️⃣ Get All Orders (Admin/Staff view with populated relations)
+// 2️⃣ Get All Orders (Supports Pagination, Filtering, and Authorization Rules)
 export const getAllOrders = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const orders = await Order.find()
-      .populate("user", "name email")
-      .populate("meals.meal", "name price");
+    // Authenticate user request
+    if (!assertUser(req.user, next)) return;
+
+    // Validate query parameters
+    const { page, limit, status } = getOrdersQueryValidate.parse(req.query);
+
+    // Build query filter (Customer only sees their own orders; Admin/Cashier can view all)
+    const queryFilter: Record<string, any> = {};
+
+    if (req.user.role === "Customer") {
+      queryFilter.user = req.user._id;
+    }
+
+    if (status) {
+      queryFilter.status = status;
+    }
+
+    // Offsets calculation
+    const skip = (page - 1) * limit;
+
+    // Fetch paginated data and total count concurrently
+    const [orders, totalOrders] = await Promise.all([
+      Order.find(queryFilter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("user", "name email")
+        .populate("meals.meal", "name price"),
+      Order.countDocuments(queryFilter),
+    ]);
+
+    const totalPages = Math.ceil(totalOrders / limit);
 
     return res.status(200).json({
       success: true,
-      data: orders,
+      data: {
+        orders,
+        pagination: {
+          totalOrders,
+          totalPages,
+          currentPage: page,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      },
     });
   } catch (error) {
     next(error);
