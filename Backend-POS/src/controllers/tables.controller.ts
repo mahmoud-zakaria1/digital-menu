@@ -8,6 +8,7 @@ import {
 import { ITableFields } from "../types/table.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
 import { assertExists } from "../utils/assertions.js";
+import Order from "../models/order.schema.js";
 
 type CreateTableInput = z.infer<typeof createTableValidate>;
 type UpdateTableInput = z.infer<typeof updateTableValidate>;
@@ -90,6 +91,12 @@ export const updateTable = async (
     }
 
     if (validatedData.orderId) {
+      const orderId = toObjectId(validatedData.orderId);
+
+      // Verify that the order actually exists in the database
+      const existingOrder = await Order.findById(orderId);
+      if (!assertExists(existingOrder, "Order", next)) return;
+
       updatePayload.currentOrder = toObjectId(validatedData.orderId);
     }
 
@@ -131,7 +138,7 @@ export const deleteTable = async (
     const tableId = toObjectId(req.params.id);
     const table = await Table.findById(tableId);
 
-    if(!assertExists(table, "Table", next)) return;
+    if (!assertExists(table, "Table", next)) return;
 
     // Block deletion if table has an unresolved order attached
     if (table.currentOrder) {
