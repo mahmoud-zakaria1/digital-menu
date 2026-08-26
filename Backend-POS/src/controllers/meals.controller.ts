@@ -4,6 +4,7 @@ import Meal from "../models/meal.schema.js";
 import {
   createMealValidate,
   updateMealValidate,
+  getMealsQueryValidate,
 } from "../validators/meal.validator.js";
 import { IMealFields } from "../types/meal.types.js";
 import { toObjectId } from "../utils/toObjectId.js";
@@ -83,23 +84,56 @@ export const createMeal = async (
   }
 };
 
-// 2️⃣ Get All Meals (with optional category filter and populated details)
+// 2️⃣ Get All Meals (Supports Pagination, Search, and Category Filter)
 export const getAllMeals = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const { category } = req.query;
-    const filter = category ? { category: String(category) } : {};
+    // Validate and parse query parameters via Zod
+    const { page, limit, category, search } = getMealsQueryValidate.parse(
+      req.query,
+    );
 
-    const meals = await Meal.find(filter)
-      .populate("category", "name")
-      .sort({ createdAt: -1 });
+    // Dynamic Filter construction
+    const filter: Record<string, any> = {};
+
+    if (category) {
+      filter.category = toObjectId(category);
+    }
+
+    if (search) {
+      filter.name = { $regex: search, $options: "i" };
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Concurrent database query execution
+    const [meals, totalMeals] = await Promise.all([
+      Meal.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("category", "name"),
+      Meal.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(totalMeals / limit);
 
     return res.status(200).json({
       success: true,
-      data: meals,
+      data: {
+        meals,
+        pagination: {
+          totalMeals,
+          totalPages,
+          currentPage: page,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      },
     });
   } catch (error) {
     next(error);
@@ -177,7 +211,7 @@ export const deleteMeal = async (
     const mealId = toObjectId(req.params.id);
     const deletedMeal = await Meal.findByIdAndDelete(mealId);
 
-    if(!assertExists(deletedMeal, "Meal", next)) return;
+    if (!assertExists(deletedMeal, "Meal", next)) return;
 
     return res.status(200).json({
       success: true,

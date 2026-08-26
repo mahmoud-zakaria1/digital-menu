@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQueryValidate } from "./common.validator.js";
 
 export const createMealValidate = z
   .object({
@@ -12,3 +13,15 @@ export const createMealValidate = z
   .strict();
 
 export const updateMealValidate = createMealValidate.partial().strict();
+
+// 💡 Reuse pagination schema & merge meal-specific search & filter params
+export const getMealsQueryValidate = paginationQueryValidate
+  .merge(
+    z.object({
+      category: z.string().optional(),
+      search: z.string().optional(),
+    }),
+  )
+  .strict();
+
+export type GetMealsQueryInput = z.infer<typeof getMealsQueryValidate>;
