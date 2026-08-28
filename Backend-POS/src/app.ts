@@ -30,7 +30,16 @@ app.use(cors({ origin: config.frontendUrl, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// 4️⃣ API Routes Setup
+// 4️⃣ Root Route (Health Check / Welcome Endpoint)
+app.get("/", (req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: "Digital Menu POS Backend API is up and running!",
+    docs: "Access API endpoints at /api/{resource}",
+  });
+});
+
+// 5️⃣ API Routes Setup
 app.use("/api/users", userRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/meals", mealRouter);
@@ -38,20 +47,20 @@ app.use("/api/tables", tableRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/payments", paymentRouter);
 
-// 5️⃣ Catch-all 404 Handler for Unmatched Routes
+// 6️⃣ Catch-all 404 Handler for Unmatched Routes
 app.use((req: Request, res: Response, next: NextFunction) => {
   const error: any = new Error(`Route ${req.originalUrl} not found`);
   error.statusCode = 404;
   next(error);
 });
 
-// 6️⃣ Global Error Handler Middleware
+// 7️⃣ Global Error Handler Middleware
 app.use(globalErrorHandling);
 
-// 7️⃣ Socket.IO Authentication Middleware
+// 8️⃣ Socket.IO Authentication Middleware
 io.use(socketAuthMiddleware);
 
-// 8️⃣ Socket.IO Connection & Real-time Events Handling
+// 9️⃣ Socket.IO Connection & Real-time Events Handling
 io.on("connection", (socket) => {
   console.log(
     `Socket connected: ${socket.id} - User: ${socket.data.user?.name}`,

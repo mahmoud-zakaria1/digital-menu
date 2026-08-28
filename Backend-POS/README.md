@@ -5,6 +5,7 @@
 A full-stack restaurant Point-of-Sale backend: real-time order management, role-based staff access, table/reservation handling, and a live payment integration — built as a deliberate step up from typical "junior CRUD API" portfolio projects.
 
 > 🌐 **Live API Deployment:** [https://digital-menu-production-4182.up.railway.app](https://digital-menu-production-4182.up.railway.app)
+
 > **Status:** Backend complete and tested. Frontend (React + Vite) in progress.
 
 ---
