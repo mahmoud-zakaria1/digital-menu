@@ -90,24 +90,42 @@ orderRouter.post("/", isVerifiedUser, createOrder);
  */
 orderRouter.patch("/:id/cancel", isVerifiedUser, cancelOrder);
 
-// 2️⃣ Management & Cashier Routes
 /**
  * @openapi
  * /api/orders:
  *   get:
- *     summary: Get all orders with user and meal details (Admin or Cashier)
+ *     summary: Get orders with pagination and status filter (Admin/Cashier see all orders, Customer sees only their own)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of orders per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, preparing, completed, cancelled]
+ *         description: Filter orders by status
  *     responses:
  *       200:
- *         description: List of all orders retrieved successfully
+ *         description: Paginated list of orders retrieved successfully (scoped by role)
  *       401:
  *         description: Not authenticated
- *       403:
- *         description: Access denied - Admins or Cashiers only
  */
-orderRouter.get("/", isVerifiedUser, isAdminOrCashier, getAllOrders);
+orderRouter.get("/", isVerifiedUser, getAllOrders);
+
+// 2️⃣ Management & Cashier Routes
 
 /**
  * @openapi
