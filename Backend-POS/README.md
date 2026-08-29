@@ -6,6 +6,8 @@ A full-stack restaurant Point-of-Sale backend: real-time order management, role-
 
 > 🌐 **Live API Deployment:** [https://digital-menu-production-4182.up.railway.app](https://digital-menu-production-4182.up.railway.app)
 
+> 📚 **Interactive Swagger Docs:** `http://localhost:8000/api-docs` *(when running locally)*
+
 > **Status:** Backend complete and tested. Frontend (React + Vite) in progress.
 
 ---
@@ -45,6 +47,7 @@ I deliberately started small (Auth → Meals → Tables → Orders) instead of j
 | Validation  | Zod (`.strict()` schemas everywhere)             |
 | Auth        | JWT in httpOnly cookies                          |
 | Real-time   | Socket.IO                                        |
+| API Docs    | Swagger UI (`swagger-ui-express` + `swagger-jsdoc`)|
 | Payments    | Paymob (Intentions API + HMAC-verified webhooks) |
 | Testing     | Jest + Supertest, isolated Atlas test database   |
 | Dev tooling | tsx, nodemon                                     |
@@ -55,7 +58,7 @@ I deliberately started small (Auth → Meals → Tables → Orders) instead of j
 Backend-POS/
 ├── node_modules/
 ├── src/
-│   ├── config/               # Environment config, DB connection
+│   ├── config/               # Environment config, DB connection, Swagger spec
 │   ├── controllers/          # Request handling + business logic
 │   ├── middlewares/          # Auth (REST + Socket), error handling
 │   ├── models/               # Mongoose schemas
@@ -145,7 +148,13 @@ The architecture is explicitly configured to manage three distinct deployment co
 
 ---
 
-## API Overview
+## API Overview & Documentation
+
+The API includes a fully interactive OpenAPI/Swagger UI endpoint. When running locally, explore and test the endpoints directly from your browser:
+
+- **Swagger UI Interface:** `http://localhost:8000/api-docs`
+
+### Summary of Key Endpoints
 
 | Resource       | Endpoint                       | Access                 |
 | -------------- | ------------------------------ | ---------------------- |
