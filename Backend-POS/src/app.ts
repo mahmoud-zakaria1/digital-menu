@@ -13,6 +13,8 @@ import paymentRouter from "./routes/payments.route.js";
 import cookieParser from "cookie-parser";
 import { socketAuthMiddleware } from "./middlewares/socketAuth.js";
 import Order from "./models/order.schema.js";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec} from "./config/swagger.js"
 
 // 1️⃣ Initialize Express App & HTTP Server
 const app = express();
@@ -35,7 +37,7 @@ app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Digital Menu POS Backend API is up and running!",
-    docs: "Access API endpoints at /api/{resource}",
+    docs: "Access API endpoints at /api-docs",
   });
 });
 
@@ -46,6 +48,7 @@ app.use("/api/meals", mealRouter);
 app.use("/api/tables", tableRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/payments", paymentRouter);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 6️⃣ Catch-all 404 Handler for Unmatched Routes
 app.use((req: Request, res: Response, next: NextFunction) => {
