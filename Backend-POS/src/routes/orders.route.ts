@@ -36,15 +36,21 @@ const orderRouter = Router();
  *                 type: array
  *                 items:
  *                   type: object
+ *                   required: [meal, quantity]
  *                   properties:
  *                     meal:
  *                       type: string
+ *                       description: Meal ObjectId
+ *                       example: 60d5ecb8b5c9c22b4c8e4111
  *                     quantity:
  *                       type: integer
+ *                       example: 2
  *               phone:
  *                 type: string
+ *                 example: "+201000000000"
  *               address:
  *                 type: string
+ *                 example: "123 Main St, Alexandria"
  *     responses:
  *       201:
  *         description: Order created successfully
@@ -59,7 +65,7 @@ orderRouter.post("/", isVerifiedUser, createOrder);
  * @openapi
  * /api/orders/{id}/cancel:
  *   patch:
- *     summary: Cancel an order (owner or Admin only, pending orders only)
+ *     summary: Cancel an order (Owner or Admin only, pending orders only)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []
@@ -74,7 +80,9 @@ orderRouter.post("/", isVerifiedUser, createOrder);
  *       200:
  *         description: Order cancelled successfully
  *       400:
- *         description: Order is no longer pending, or already paid
+ *         description: Order is no longer pending or already paid
+ *       401:
+ *         description: Not authenticated
  *       403:
  *         description: Not authorized to cancel this order
  *       404:
@@ -87,13 +95,15 @@ orderRouter.patch("/:id/cancel", isVerifiedUser, cancelOrder);
  * @openapi
  * /api/orders:
  *   get:
- *     summary: Get all orders (Admin/Cashier only)
+ *     summary: Get all orders with user and meal details (Admin or Cashier)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: List of all orders with populated user and meal details
+ *         description: List of all orders retrieved successfully
+ *       401:
+ *         description: Not authenticated
  *       403:
  *         description: Access denied - Admins or Cashiers only
  */
@@ -103,7 +113,7 @@ orderRouter.get("/", isVerifiedUser, isAdminOrCashier, getAllOrders);
  * @openapi
  * /api/orders/{id}:
  *   get:
- *     summary: Get a single order by ID (Admin/Cashier only)
+ *     summary: Get a single order by ID (Admin or Cashier)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []
@@ -116,7 +126,9 @@ orderRouter.get("/", isVerifiedUser, isAdminOrCashier, getAllOrders);
  *         description: Order ID
  *     responses:
  *       200:
- *         description: Order details
+ *         description: Order details retrieved successfully
+ *       401:
+ *         description: Not authenticated
  *       403:
  *         description: Access denied - Admins or Cashiers only
  *       404:
@@ -128,7 +140,7 @@ orderRouter.get("/:id", isVerifiedUser, isAdminOrCashier, getOrderById);
  * @openapi
  * /api/orders/{id}/status:
  *   patch:
- *     summary: Update order status (enforces state machine transitions)
+ *     summary: Update order status (Admin or Cashier - Enforces state machine logic)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []
@@ -150,11 +162,14 @@ orderRouter.get("/:id", isVerifiedUser, isAdminOrCashier, getOrderById);
  *               status:
  *                 type: string
  *                 enum: [pending, preparing, completed, cancelled]
+ *                 example: preparing
  *     responses:
  *       200:
  *         description: Order status updated successfully
  *       400:
- *         description: Invalid status transition (e.g. pending -> completed directly)
+ *         description: Invalid status transition
+ *       401:
+ *         description: Not authenticated
  *       403:
  *         description: Access denied - Admins or Cashiers only
  *       404:
@@ -167,7 +182,7 @@ orderRouter.patch("/:id/status", isVerifiedUser, isAdminOrCashier, updateOrder);
  * @openapi
  * /api/orders/{id}:
  *   delete:
- *     summary: Hard delete an order (Admin only)
+ *     summary: Delete an order by ID (Admin only)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []
@@ -180,7 +195,9 @@ orderRouter.patch("/:id/status", isVerifiedUser, isAdminOrCashier, updateOrder);
  *         description: Order ID
  *     responses:
  *       200:
- *         description: Order permanently deleted
+ *         description: Order deleted successfully
+ *       401:
+ *         description: Not authenticated
  *       403:
  *         description: Access denied - Admins only
  *       404:
