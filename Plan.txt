@@ -1,6 +1,7 @@
 ========================================
 DIGITAL MENU / POS SYSTEM - BACKEND PLAN
 ========================================
+[STATUS: COMPLETE]
 
 [✓] Create Project Directory
 [✓] Create a NPM Project and install all dependencies
@@ -77,26 +78,96 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] Tested end-to-end via ngrok (real Paymob test-mode checkout flow)
 
 [✓] Testing
-    - NOT in original plan - added for portfolio quality
     - Jest + Supertest + isolated Atlas test database
     - Orders API integration tests: server-side price calc, strict
       field rejection, state machine transitions
 
-[ ] README.md
-    - IN PROGRESS - documenting architecture decisions, setup instructions,
-      API overview, tech stack rationale
+[✓] README.md
+    - Architecture decisions, setup instructions, API overview, tech stack rationale
 
-[ ] Deploy
+[✓] Deploy (Backend)
     - CHANGED FROM PLAN: Railway first (quick deploy for job applications),
       then AWS/DigitalOcean later once frontend is built (learning goal)
 
+
 ========================================
-FRONTEND (not started yet)
+FRONTEND PLAN (React + Vite) - IN PROGRESS
 ========================================
-[ ] React + Vite (deviating from original React/Next.js undecided plan -
-    following tutorial series which uses React + Redux)
-[ ] Connect to Backend APIs (all endpoints ready and tested via Postman)
-[ ] Socket.io client integration (reconnect + re-join tracked order rooms)
+Estimated duration: 3-4 weeks (~3-4 hrs/day)
+Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
+       Redux Toolkit (RTK Query) with Axios instance (withCredentials: true
+       for httpOnly cookie auth), React Hook Form + Zod, Socket.io-client
+
+--- Phase 1: Setup, SCSS Config & Architecture (3 days) ---
+[ ] Scaffold project: Vite + React + TypeScript
+[ ] Install & configure Tailwind CSS + SASS (.scss)
+[ ] Set up RTK Query with a base Axios instance
+    (withCredentials: true, required for httpOnly cookie auth against the
+    existing backend)
+[ ] Feature-based (domain-driven) folder architecture
+[ ] Global Error Boundary + unified Toast Notification system for
+    API/network error handling
+
+--- Phase 2: Authentication & Protected Routes (3 days) ---
+[ ] Login / Register pages (/login, /register) with React Hook Form + Zod
+[ ] Protected Route wrapper that checks `role` (Customer / Cashier / Admin)
+    and redirects based on permissions
+[ ] Access-denied handling for unauthorized dashboard access
+
+--- Phase 3: Customer Journey - Menu & Cart (5 days) ---
+[ ] Menu page (/menu): meals + categories, live search, quick filtering
+[ ] Dynamic QR/Table handling: read table number from URL (?table=4) and
+    persist it in session
+[ ] Cart management: local Redux slice replicating backend's price/tax
+    calculation logic (must match server-side calc exactly)
+[ ] Checkout page (/checkout): payment method selection (Cash / Online
+    via Paymob)
+
+--- Phase 4: Real-Time POS Dashboards & Sockets (7 days) ---
+[ ] Cashier Dashboard (/cashier):
+    [ ] Live incoming-orders view (Kanban board or list view)
+    [ ] Socket.io-client integration for real-time order status updates
+    [ ] Audio notification (new-order beep) on "new_order" socket event
+    [ ] Quick status-change action (Pending -> Preparing -> Ready -> Completed)
+[ ] Admin Dashboard (/admin):
+    [ ] Full CRUD UI for menu (meals + categories)
+    [ ] Meal image upload & management
+    [ ] Quick analytics cards (total revenue, active orders, best-selling
+        meals)
+
+--- Phase 5: Payments, Live Tracking & Polish (4 days) ---
+[ ] Customer order-tracking page (/orders/:id/track): live screen that
+    listens only to that order's socket room
+[ ] Price reconciliation: after order creation, replace the locally
+    computed cart total with the server-returned order total before
+    proceeding to payment (never trust the client-side calc for the
+    amount actually charged)
+[ ] Paymob checkout flow: redirect + success/callback handling
+[ ] Responsive design: mobile-first for Customer/Cashier, larger-screen
+    layout for Admin
+
+--- Frontend additions (raise technical bar) ---
+[ ] Modular SCSS architecture (BEM or CSS Modules where needed):
+        src/styles/_variables.scss   (colors, shadows)
+        src/styles/_mixins.scss      (responsive breakpoints, flex/grid mixins)
+        src/styles/_components.scss  (@apply rules for buttons, cards, inputs)
+        src/styles/main.scss         (entry point)
+[ ] Audio tones on the Cashier dashboard for new_order socket events
+    (new Audio('/sounds/new-order.mp3').play())
+[ ] Optimistic Updates in RTK Query for order status changes (instant UI
+    update, automatic rollback + Toast error on failed request)
+[ ] Skeleton loaders (Shadcn UI Skeleton or custom SCSS) instead of plain
+    spinners for menu/dashboard loading states
+[ ] FE-README.md (or a frontend section in the main README) covering:
+    - Auth/cookie handling with CORS
+    - Socket reconnect handling strategy
+    - Screenshots/GIFs of dashboards and live order tracking
+
+[ ] Connect frontend to backend APIs (all endpoints already built & tested
+    via Postman)
+[ ] Socket.io client integration: reconnect logic + re-join tracked-order
+    rooms on reconnect
+
 
 ========================================
 PHASE 2 / FUTURE IDEAS (documented, not built yet)
@@ -113,17 +184,24 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
   current scale, but noted as the real future bottleneck vs data structure)
 - Category existence check on Table.currentOrder reference (minor gap)
 
+
 ========================================
 KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 ========================================
 - Auth: httpOnly cookies (not Bearer tokens) - correct choice since this
   is a single web frontend talking to its own backend. Would add hybrid
   Bearer support later if a mobile app or third-party API access is added.
+  -> Frontend MUST use withCredentials: true on every request (Axios/RTK
+     Query base config) or auth will silently fail via CORS.
 - All ObjectId string->ObjectId conversions go through a single
   toObjectId() helper (validates + converts, throws 400 on invalid format)
 - All Zod validators use .strict() to reject unexpected fields
   (e.g. blocks client-sent totalPrice tampering)
+  -> Frontend cart totals are for UI/UX only; the server is the source of
+     truth for price calculation and re-validates on every order.
 - Global error handler is the single source of truth for error response
   shape - controllers just call next(error)
+  -> Frontend's global Error Boundary / Toast system should be built
+     around this single response shape.
 - assertUser / assertExists helper functions (TypeScript type predicates)
   eliminate repeated null checks across controllers
