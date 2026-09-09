@@ -93,7 +93,7 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
 ========================================
 FRONTEND PLAN (React + Vite) - IN PROGRESS
 ========================================
-Estimated duration: 3-4 weeks (~3-4 hrs/day)
+
 Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
        Redux Toolkit (RTK Query) with Axios instance (withCredentials: true
        for httpOnly cookie auth), React Hook Form + Zod, Socket.io-client
