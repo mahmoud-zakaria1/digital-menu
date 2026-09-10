@@ -104,7 +104,7 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 [✓] Set up RTK Query with a base Axios instance
     (withCredentials: true, required for httpOnly cookie auth against the
     existing backend)
-[ ] Feature-based (domain-driven) folder architecture
+[✓] Feature-based (domain-driven) folder architecture
 [ ] Global Error Boundary + unified Toast Notification system for
     API/network error handling
 
