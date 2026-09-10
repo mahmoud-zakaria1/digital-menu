@@ -99,9 +99,9 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
        for httpOnly cookie auth), React Hook Form + Zod, Socket.io-client
 
 --- Phase 1: Setup, SCSS Config & Architecture (3 days) ---
-[ ] Scaffold project: Vite + React + TypeScript
-[ ] Install & configure Tailwind CSS + SASS (.scss)
-[ ] Set up RTK Query with a base Axios instance
+[✓] Scaffold project: Vite + React + TypeScript
+[✓] Install & configure Tailwind CSS + SASS (.scss)
+[✓] Set up RTK Query with a base Axios instance
     (withCredentials: true, required for httpOnly cookie auth against the
     existing backend)
 [ ] Feature-based (domain-driven) folder architecture
