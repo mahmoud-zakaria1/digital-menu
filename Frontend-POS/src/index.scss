@@ -1,2 +1,2 @@
-@import "tailwindcss";
+@use "tailwindcss" as *;
 @use "./styles/main.scss" as *;
