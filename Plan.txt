@@ -105,7 +105,7 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     (withCredentials: true, required for httpOnly cookie auth against the
     existing backend)
 [✓] Feature-based (domain-driven) folder architecture
-[ ] Global Error Boundary + unified Toast Notification system for
+[✓] Global Error Boundary + unified Toast Notification system for
     API/network error handling
 
 --- Phase 2: Authentication & Protected Routes (3 days) ---
@@ -147,7 +147,7 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     layout for Admin
 
 --- Frontend additions (raise technical bar) ---
-[ ] Modular SCSS architecture (BEM or CSS Modules where needed):
+[✓] Modular SCSS architecture (BEM or CSS Modules where needed):
         src/styles/_variables.scss   (colors, shadows)
         src/styles/_mixins.scss      (responsive breakpoints, flex/grid mixins)
         src/styles/_components.scss  (@apply rules for buttons, cards, inputs)
