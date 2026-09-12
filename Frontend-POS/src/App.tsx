@@ -1,8 +1,8 @@
+import { AppRouter } from './router/AppRouter';
 
+// Root Application Shell
 function App() {
-  return (
-    <h1>Digital Menu Frontend</h1>
-  )
+  return <AppRouter />;
 }
 
-export default App
+export default App;
