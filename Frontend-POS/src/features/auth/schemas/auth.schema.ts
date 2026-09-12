@@ -22,6 +22,13 @@ export const registerSchema = z.object({
     .string()
     .min(1, "Email is required")
     .email("Invalid email address format"),
+  phone: z
+    .string()
+    .min(1, "Phone number is required")
+    .regex(
+      /^\+?[1-9]\d{8,14}$/,
+      "Please enter a valid phone number (e.g. +201000000000)",
+    ),
   password: z
     .string()
     .min(1, "Password is required")
