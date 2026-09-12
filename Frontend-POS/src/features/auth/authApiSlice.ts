@@ -6,7 +6,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
     // Login Mutation
     login: builder.mutation({
       query: (credentials) => ({
-        url: "/auth/login",
+        url: "/users/login",
         method: "POST",
         data: credentials,
       }),
@@ -16,7 +16,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
     // Register Mutation
     register: builder.mutation({
       query: (userData) => ({
-        url: "/auth/register",
+        url: "/users/register",
         method: "POST",
         data: userData,
       }),
@@ -25,7 +25,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
     // Get Current User Profile
     getProfile: builder.query({
       query: () => ({
-        url: "/auth/profile",
+        url: "/users/profile",
         method: "GET",
       }),
       providesTags: ["User"],
