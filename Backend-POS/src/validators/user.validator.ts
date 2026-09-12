@@ -12,7 +12,11 @@ export const registerValidate = z
         "Please provide a valid international phone number",
       ),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    role: z.enum(["Admin", "Cashier", "Customer"]).default("Customer"),
+    // `role` intentionally removed: this is a PUBLIC route, so accepting a
+    // client-supplied role would let anyone self-register as Admin/Cashier.
+    // New accounts always fall back to the Mongoose schema default
+    // ("Customer"). Staff accounts should be created through a separate,
+    // Admin-only endpoint if/when that's needed.
   })
   .strict();
 
