@@ -6,7 +6,8 @@ import { store } from "./app/store.ts";
 import { ToastProvider } from "./components/ToastProvider.tsx";
 import { ErrorBoundaryFallback } from "./components/ErrorBoundaryFallback.tsx";
 import App from "./App.tsx";
-import "./index.scss";
+import "./index.css";
+import "./styles/main.scss";
 
 // 1️⃣ Initialize React Root Element
 const rootElement = document.getElementById("root")!;
