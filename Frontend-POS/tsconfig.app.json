@@ -17,6 +17,11 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Strictness - matches backend's strict-mode standard */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,

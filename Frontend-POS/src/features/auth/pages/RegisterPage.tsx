@@ -25,8 +25,16 @@ export const RegisterPage = () => {
       toast.success(response.message || "Account created successfully!");
       navigate("/login");
     } catch (err: unknown) {
-      const errorData = err as { data?: { message?: string } };
-      toast.error(errorData.data?.message || "Registration failed.");
+      const errorObj = err as { data?: { message?: string; error?: string } };
+      const errorMessage =
+        errorObj.data?.message ||
+        errorObj.data?.error ||
+        "Registration failed.";
+
+      toast.error(errorMessage, {
+        position: "top-center",
+        duration: 4000,
+      });
     }
   };
 
@@ -95,7 +103,7 @@ export const RegisterPage = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition disabled:opacity-50"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? "Creating Account..." : "Sign Up"}
           </button>
