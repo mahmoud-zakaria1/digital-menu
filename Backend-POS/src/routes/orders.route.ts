@@ -51,11 +51,15 @@ const orderRouter = Router();
  *               address:
  *                 type: string
  *                 example: "123 Main St, Alexandria"
+ *               table:
+ *                 type: string
+ *                 description: Table ObjectId (set when the order originates from a table's QR code). Automatically links the order to the table and marks it Occupied.
+ *                 example: 60d5ecb8b5c9c22b4c8e4222
  *     responses:
  *       201:
  *         description: Order created successfully
  *       400:
- *         description: Validation error or invalid meal IDs
+ *         description: Validation error, invalid meal IDs, or table does not exist
  *       401:
  *         description: Not authenticated
  */

@@ -11,6 +11,7 @@ export interface IOrderFields {
   totalPrice: number;
   address?: string;
   phone: string;
+  table?: Types.ObjectId;
   status: "pending" | "preparing" | "completed" | "cancelled";
 }
 

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import Order from "../models/order.schema.js";
 import Meal from "../models/meal.schema.js";
+import Table from "../models/table.schema.js";
 import {
   createOrderValidate,
   updateOrderStatusValidate,
@@ -34,6 +35,11 @@ const mapToOrderDocument = (
   if (input.address) {
     orderDoc.address = input.address;
   }
+
+  if (input.table) {
+    orderDoc.table = toObjectId(input.table);
+  }
+
   return orderDoc;
 };
 
@@ -50,6 +56,19 @@ export const createOrder = async (
     // Validate request body schemas
     const validatedData = createOrderValidate.parse(req.body);
     const userId = req.user._id;
+
+    // If the order came from a table's QR code, make sure that table
+    // actually exists before creating the order around it
+    let tableId: ReturnType<typeof toObjectId> | undefined;
+    if (validatedData.table) {
+      tableId = toObjectId(validatedData.table);
+      const tableExists = await Table.findById(tableId);
+      if (!tableExists) {
+        const error: any = new Error("Table does not exist");
+        error.statusCode = 400;
+        return next(error);
+      }
+    }
 
     // Fetch all requested meals to ensure they exist and retrieve accurate prices
     const mealIds = validatedData.meals.map((m) => m.meal);
@@ -86,6 +105,15 @@ export const createOrder = async (
     );
 
     const newOrder = await Order.create(orderData);
+
+    // Keep the table's currentOrder in sync automatically, instead of
+    // relying on staff to link it manually via PUT /api/tables/:id
+    if (tableId) {
+      await Table.findByIdAndUpdate(tableId, {
+        currentOrder: newOrder._id,
+        status: "Occupied",
+      });
+    }
 
     // Broadcast new order event to all connected dashboard/kitchen clients
     io.emit("new_order", newOrder);
@@ -134,7 +162,8 @@ export const getAllOrders = async (
         .skip(skip)
         .limit(limit)
         .populate("user", "name email")
-        .populate("meals.meal", "name price"),
+        .populate("meals.meal", "name price")
+        .populate("table", "tableNo"),
       Order.countDocuments(queryFilter),
     ]);
 
@@ -169,7 +198,8 @@ export const getOrderById = async (
     const orderId = toObjectId(req.params.id);
     const order = await Order.findById(orderId)
       .populate("user", "name")
-      .populate("meals.meal", "name price");
+      .populate("meals.meal", "name price")
+      .populate("table", "tableNo");
 
     if (!assertExists(order, "Order", next)) return;
 

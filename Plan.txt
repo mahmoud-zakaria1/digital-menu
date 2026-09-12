@@ -109,7 +109,7 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     API/network error handling
 
 --- Phase 2: Authentication & Protected Routes (3 days) ---
-[ ] Login / Register pages (/login, /register) with React Hook Form + Zod
+[✓] Login / Register pages (/login, /register) with React Hook Form + Zod
 [ ] Protected Route wrapper that checks `role` (Customer / Cashier / Admin)
     and redirects based on permissions
 [ ] Access-denied handling for unauthorized dashboard access

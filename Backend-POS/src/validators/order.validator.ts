@@ -15,6 +15,9 @@ export const createOrderValidate = z
     phone: z
       .string()
       .regex(/^\+?[1-9]\d{8,14}$/, "Please provide a valid phone number"),
+    // Optional: set when the order originates from a table's QR code
+    // (frontend reads ?table=<id> from the URL and sends it here).
+    table: z.string().optional(),
   })
   .strict();
 

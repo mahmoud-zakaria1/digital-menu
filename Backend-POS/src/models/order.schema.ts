@@ -13,6 +13,7 @@ const orderSchema = new Schema<IOrder>(
     totalPrice: { type: Number, required: true },
     address: { type: String },
     phone: { type: String, required: true },
+    table: { type: Schema.Types.ObjectId, ref: "Table" },
     status: {
       type: String,
       enum: ["pending", "preparing", "completed", "cancelled"],
