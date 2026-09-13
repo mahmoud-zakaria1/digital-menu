@@ -31,10 +31,7 @@ export const RegisterPage = () => {
         errorObj.data?.error ||
         "Registration failed.";
 
-      toast.error(errorMessage, {
-        position: "top-center",
-        duration: 4000,
-      });
+      toast.error(errorMessage, { duration: 4000 });
     }
   };
 
