@@ -110,9 +110,9 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 
 --- Phase 2: Authentication & Protected Routes (3 days) ---
 [✓] Login / Register pages (/login, /register) with React Hook Form + Zod
-[ ] Protected Route wrapper that checks `role` (Customer / Cashier / Admin)
+[✓] Protected Route wrapper that checks `role` (Customer / Cashier / Admin)
     and redirects based on permissions
-[ ] Access-denied handling for unauthorized dashboard access
+[✓] Access-denied handling for unauthorized dashboard access
 
 --- Phase 3: Customer Journey - Menu & Cart (5 days) ---
 [ ] Menu page (/menu): meals + categories, live search, quick filtering

@@ -1,12 +1,14 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { loginSchema, type LoginFormData } from "../schemas/auth.schema";
 import { useLoginMutation } from "../authApiSlice";
+import { getRoleHomePath } from "../utils/getRoleHomePath";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [login, { isLoading }] = useLoginMutation();
 
   // 1️⃣ Initialize Form with Zod Validation
@@ -24,14 +26,15 @@ export const LoginPage = () => {
       const response = await login(data).unwrap();
       toast.success(response.message || "Logged in successfully!");
 
-      // Redirect based on user role
-      if (response.user.role === "Admin") {
-        navigate("/admin");
-      } else if (response.user.role === "Cashier") {
-        navigate("/cashier");
-      } else {
-        navigate("/menu");
-      }
+      // If ProtectedRoute redirected the user here from somewhere specific
+      // (e.g. they tried /cashier directly), send them back there instead
+      // of always landing on the generic role home page.
+      const from = (location.state as { from?: Location })?.from;
+      const destination = from
+        ? `${from.pathname}${from.search ?? ""}`
+        : getRoleHomePath(response.user.role);
+
+      navigate(destination, { replace: true });
     } catch (err: unknown) {
       const errorData = err as { data?: { message?: string } };
       toast.error(

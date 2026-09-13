@@ -1,4 +1,12 @@
 import { apiSlice } from "../../api/apiSlice";
+import type { User } from "./types/auth.types";
+
+// Shape the backend actually returns from /users/profile
+interface ProfileResponse {
+  success: boolean;
+  message: string;
+  user: User;
+}
 
 // 1️⃣ Inject Auth Endpoints into Central apiSlice
 export const authApiSlice = apiSlice.injectEndpoints({
@@ -23,11 +31,15 @@ export const authApiSlice = apiSlice.injectEndpoints({
     }),
 
     // Get Current User Profile
-    getProfile: builder.query({
+    // Backend wraps the user in { success, message, user }, so we unwrap
+    // it here — every component that uses this hook should get the User
+    // object directly, not the raw envelope.
+    getProfile: builder.query<User, void>({
       query: () => ({
         url: "/users/profile",
         method: "GET",
       }),
+      transformResponse: (response: ProfileResponse) => response.user,
       providesTags: ["User"],
     }),
   }),
