@@ -1,6 +1,7 @@
 import request from "supertest";
 import { app } from "../app.js";
 import { describe, beforeEach, it, expect } from "@jest/globals";
+import User from "../models/user.schema.js";
 
 describe("Orders API Integration Tests", () => {
   let adminCookie: string;
@@ -9,8 +10,13 @@ describe("Orders API Integration Tests", () => {
 
   // 1️⃣ Setup Test Data (Users, Cookies, Category, Meal) Before Each Test
   beforeEach(async () => {
-    // Register & Login Admin User
-    await request(app).post("/api/users/register").send({
+    // Create Admin User directly via the model.
+    // NOTE: role can no longer be set through POST /api/users/register
+    // (that route is public and .strict() now rejects `role` entirely,
+    // by design — see fix(backend/auth): remove client-controlled role).
+    // Creating staff accounts is a privileged, out-of-band operation,
+    // so tests reflect that by seeding the Admin directly.
+    await User.create({
       name: "Admin User",
       email: "admin@test.com",
       phone: "+201234567890",
@@ -25,7 +31,7 @@ describe("Orders API Integration Tests", () => {
 
     adminCookie = adminLogin.headers["set-cookie"]?.[0] ?? "";
 
-    // Register & Login Customer User
+    // Register & Login Customer User (public register — no role field, stays Customer by default)
     await request(app).post("/api/users/register").send({
       name: "Customer User",
       email: "customer@test.com",
