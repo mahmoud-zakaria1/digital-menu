@@ -48,6 +48,9 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] GET, POST, PUT, DELETE (expanded beyond original GET/POST-only plan)
         [✓] Cancel Reservation endpoint (auto-manages reservedAt field)
         [✓] Delete protection (blocked if table has active order)
+        [✓] Orders can now carry an optional `table` reference, set
+            automatically as "Occupied" with currentOrder linked when an
+            order is created from a table's QR code (see Fixes Log below)
 
     - Socket.io Setup (The Real-Time Engine)
         [✓] Initialize Socket.io server alongside Express (shared HTTP server)
@@ -67,6 +70,7 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
             -> emit "status_changed" to order-specific room
         [✓] Cancel Order (owner or Admin, pending-only, blocked if already paid)
         [✓] Delete Order (Admin only, hard delete)
+        [✓] Optional `table` field on order creation, validated + auto-linked
 
     - Payment Related API's
         [✓] CHANGED FROM PLAN: Paymob instead of Razorpay
@@ -81,6 +85,8 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
     - Jest + Supertest + isolated Atlas test database
     - Orders API integration tests: server-side price calc, strict
       field rejection, state machine transitions
+    - Admin test fixture now seeded directly via User.create() (see Fixes
+      Log - public register no longer accepts a client-supplied role)
 
 [✓] README.md
     - Architecture decisions, setup instructions, API overview, tech stack rationale
@@ -88,6 +94,36 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
 [✓] Deploy (Backend)
     - CHANGED FROM PLAN: Railway first (quick deploy for job applications),
       then AWS/DigitalOcean later once frontend is built (learning goal)
+
+
+========================================
+SECURITY & BUG FIXES LOG
+========================================
+- [BACKEND / SECURITY] Removed `role` from the public register endpoint's
+  Zod schema. It previously accepted an optional `role` field on a route
+  anyone can hit unauthenticated, meaning any visitor could self-register
+  as Admin or Cashier. New accounts now always fall back to the Mongoose
+  schema default ("Customer"). Creating staff accounts is a separate,
+  privileged concern - not yet built as an endpoint (currently done by
+  editing the `role` field directly in MongoDB Atlas for dev/testing).
+- [BACKEND / FEATURE] Order can now reference the Table it came from
+  (`table` field, optional). createOrder validates the table exists and
+  automatically sets Table.currentOrder + status "Occupied" - staff no
+  longer have to link them manually via PUT /api/tables/:id.
+- [FRONTEND / BUG] authApiSlice was calling /api/auth/* - corrected to
+  /api/users/* to match the actual backend route prefix.
+- [FRONTEND / BUG] Register form + Zod schema were missing `phone`, which
+  the backend requires - every registration failed with a 400 until fixed.
+- [FRONTEND / BUG] getProfile returned the backend's raw
+  {success, message, user} envelope instead of the User object, so every
+  role check in ProtectedRoute silently saw `undefined`. Fixed with
+  transformResponse.
+- [FRONTEND / UX] Login now returns the user to the page they originally
+  tried to reach (location.state.from) instead of a fixed role route;
+  added RootRedirect so "/" sends an already-authenticated user straight
+  to their role's home page instead of always bouncing to /login.
+- [FRONTEND / UX] Toast default position changed from top-right to
+  top-center for consistency across the app.
 
 
 ========================================
@@ -113,13 +149,18 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 [✓] Protected Route wrapper that checks `role` (Customer / Cashier / Admin)
     and redirects based on permissions
 [✓] Access-denied handling for unauthorized dashboard access
+    (see Fixes Log above for the bugs found and corrected along the way)
 
 --- Phase 3: Customer Journey - Menu & Cart (5 days) ---
 [ ] Menu page (/menu): meals + categories, live search, quick filtering
 [ ] Dynamic QR/Table handling: read table number from URL (?table=4) and
-    persist it in session
-[ ] Cart management: local Redux slice replicating backend's price/tax
+    persist it in session; sent as `table` on order creation (backend
+    support for this already done - see Fixes Log)
+[ ] Cart management: local Redux slice replicating backend's price
     calculation logic (must match server-side calc exactly)
+    - NOTE: backend does not compute any tax currently (totalPrice is
+      strictly sum(meal.price * quantity)) - cart mirrors that, no tax
+      line unless/until the backend actually adds one
 [ ] Checkout page (/checkout): payment method selection (Cash / Online
     via Paymob)
 
@@ -183,7 +224,8 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
 - Pagination on Order.find() / heavier list endpoints (not needed yet at
   current scale, but noted as the real future bottleneck vs data structure)
 - Category existence check on Table.currentOrder reference (minor gap)
-
+- Admin-only "create staff account" endpoint (POST /api/users/staff or
+  similar) so Admin/Cashier accounts don't require manual DB edits
 
 ========================================
 KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
@@ -205,3 +247,7 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
      around this single response shape.
 - assertUser / assertExists helper functions (TypeScript type predicates)
   eliminate repeated null checks across controllers
+- Public routes never accept a client-supplied `role`, `totalPrice`, or
+  any other field that determines trust/money - those are always
+  server-derived or Admin-only. This is now a running principle, not a
+  one-off fix (see Security & Bug Fixes Log).
