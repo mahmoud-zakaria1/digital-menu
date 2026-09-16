@@ -8,7 +8,7 @@ export const ToastProvider = () => {
       toastOptions={{
         duration: 4000,
         style: {
-          background: "#333",
+          background: "#2B211B",
           color: "#fff",
           borderRadius: "8px",
           fontSize: "14px",

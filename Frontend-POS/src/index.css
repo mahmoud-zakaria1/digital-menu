@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+/* Food/menu-facing brand tokens - warm, appetite-driven palette.
+   Scoped intentionally to the customer-facing menu pages for now
+   (auth pages keep the existing slate/blue look) so this doesn't
+   silently restyle the whole app in one pass. */
+@theme {
+  --color-brand-cream: #fff8f1;
+  --color-brand-charcoal: #2b211b;
+  --color-brand-orange: #e1531f;
+  --color-brand-orange-dark: #b23a1b;
+  --color-brand-peach: #fde8da;
+}
