@@ -117,13 +117,22 @@ SECURITY & BUG FIXES LOG
 - [FRONTEND / BUG] getProfile returned the backend's raw
   {success, message, user} envelope instead of the User object, so every
   role check in ProtectedRoute silently saw `undefined`. Fixed with
-  transformResponse.
+  transformResponse. Same pattern applied proactively to menuApiSlice
+  (getMeals/getCategories) to avoid repeating the bug.
 - [FRONTEND / UX] Login now returns the user to the page they originally
   tried to reach (location.state.from) instead of a fixed role route;
   added RootRedirect so "/" sends an already-authenticated user straight
   to their role's home page instead of always bouncing to /login.
 - [FRONTEND / UX] Toast default position changed from top-right to
   top-center for consistency across the app.
+- [FRONTEND / DESIGN] Unified the whole app onto one warm, restaurant-
+  appropriate brand palette (brand-cream / brand-charcoal / brand-orange
+  / brand-orange-dark / brand-peach, defined once via Tailwind v4 @theme
+  in index.css) instead of the generic slate/blue scaffold default.
+  Applied across auth pages, protected-route loading states, and the
+  menu. Semantic colors (red for errors/403, green for success toasts)
+  deliberately left untouched - brand color replaces neutral/structural
+  color only, never a status signal.
 
 
 ========================================
@@ -152,15 +161,17 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     (see Fixes Log above for the bugs found and corrected along the way)
 
 --- Phase 3: Customer Journey - Menu & Cart (5 days) ---
-[ ] Menu page (/menu): meals + categories, live search, quick filtering
+[✓] Menu page (/menu): meals + categories, live search, quick filtering
+    - cart Redux slice (mealId+quantity references only, localStorage-
+      persisted, tableId lives inside cart state - see Fixes/architecture
+      notes) built alongside this as a prerequisite
 [ ] Dynamic QR/Table handling: read table number from URL (?table=4) and
     persist it in session; sent as `table` on order creation (backend
     support for this already done - see Fixes Log)
-[ ] Cart management: local Redux slice replicating backend's price
-    calculation logic (must match server-side calc exactly)
-    - NOTE: backend does not compute any tax currently (totalPrice is
-      strictly sum(meal.price * quantity)) - cart mirrors that, no tax
-      line unless/until the backend actually adds one
+    - NOTE: URL -> cart sync itself is done (setTableFromUrl wired into
+      MenuPage); what's left here is the checkout flow actually sending
+      `table` on order creation
+[ ] Cart page/drawer: review items, adjust quantities, remove items
 [ ] Checkout page (/checkout): payment method selection (Cash / Online
     via Paymob)
 
@@ -175,6 +186,8 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     [ ] Meal image upload & management
     [ ] Quick analytics cards (total revenue, active orders, best-selling
         meals)
+    [ ] "Create staff account" UI once the backend endpoint exists (see
+        Future Ideas) - replaces manual role edits in Atlas
 
 --- Phase 5: Payments, Live Tracking & Polish (4 days) ---
 [ ] Customer order-tracking page (/orders/:id/track): live screen that
@@ -193,6 +206,8 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
         src/styles/_mixins.scss      (responsive breakpoints, flex/grid mixins)
         src/styles/_components.scss  (@apply rules for buttons, cards, inputs)
         src/styles/main.scss         (entry point)
+[✓] Unified brand design tokens (Tailwind v4 @theme) applied app-wide -
+    see Fixes Log
 [ ] Audio tones on the Cashier dashboard for new_order socket events
     (new Audio('/sounds/new-order.mp3').play())
 [ ] Optimistic Updates in RTK Query for order status changes (instant UI
@@ -204,8 +219,8 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     - Socket reconnect handling strategy
     - Screenshots/GIFs of dashboards and live order tracking
 
-[ ] Connect frontend to backend APIs (all endpoints already built & tested
-    via Postman)
+[✓] Connect frontend to backend APIs - auth + menu domains done, orders/
+    payments/tables endpoints still to be wired up in later phases
 [ ] Socket.io client integration: reconnect logic + re-join tracked-order
     rooms on reconnect
 
@@ -251,3 +266,14 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
   any other field that determines trust/money - those are always
   server-derived or Admin-only. This is now a running principle, not a
   one-off fix (see Security & Bug Fixes Log).
+- Cart slice stores mealId+quantity references only, never a price/name
+  snapshot - same "references over embedding" principle as Meal/Category
+  on the backend. Price/name are read live from the meals RTK Query
+  cache at display time. tableId lives inside the cart's own state (not
+  in the localStorage key) - switching to a different table silently
+  clears the cart; landing on /menu without a table param is a no-op,
+  not a forced delivery/takeaway mode.
+- Brand color tokens are defined once (index.css @theme) and reused via
+  Tailwind utility classes everywhere - never a one-off hex value in a
+  component. Semantic colors (error red, success green) are kept
+  separate from brand color on purpose.
