@@ -8,6 +8,7 @@ import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { ProtectedRoute } from "../features/auth/components/ProtectedRoute";
 import { RootRedirect } from "../features/auth/components/RootRedirect";
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
+import { MenuPage } from "../features/menu/pages/MenuPage";
 
 const router = createBrowserRouter([
   // Public Routes
@@ -34,11 +35,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/menu",
-        element: (
-          <div className="p-8 text-2xl font-bold">
-            Menu Page (Coming in Phase 3)
-          </div>
-        ),
+        element: <MenuPage />,
       },
     ],
   },
