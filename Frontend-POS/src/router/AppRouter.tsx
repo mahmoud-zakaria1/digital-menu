@@ -37,6 +37,16 @@ const router = createBrowserRouter([
         path: "/menu",
         element: <MenuPage />,
       },
+      {
+        path: "/cart",
+        element: (
+          <div className="min-h-screen bg-brand-cream flex items-center justify-center p-8">
+            <p className="text-2xl font-bold text-brand-charcoal">
+              Cart Page (Coming Next)
+            </p>
+          </div>
+        ),
+      },
     ],
   },
 

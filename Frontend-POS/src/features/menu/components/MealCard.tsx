@@ -1,3 +1,4 @@
+import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useAppDispatch, useAppSelector } from "../../../app/hooks";
 import { selectCartQuantityForMeal } from "../../cart/cartSelectors";
 import { addItem, incrementItem, decrementItem } from "../../cart/cartSlice";
@@ -5,22 +6,41 @@ import type { Meal } from "../types/menu.types";
 
 interface MealCardProps {
   meal: Meal;
+  onOpen: (meal: Meal) => void;
 }
 
-export const MealCard = ({ meal }: MealCardProps) => {
+export const MealCard = ({ meal, onOpen }: MealCardProps) => {
   const dispatch = useAppDispatch();
   const quantityInCart = useAppSelector(selectCartQuantityForMeal(meal._id));
+  const [imageFailed, setImageFailed] = useState(false);
 
   const categoryName =
     typeof meal.category === "string" ? undefined : meal.category.name;
 
+  const stopPropagation = (e: MouseEvent) => e.stopPropagation();
+
+  const handleCardKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpen(meal);
+    }
+  };
+
   return (
-    <div className="group bg-white rounded-2xl border border-brand-peach overflow-hidden flex flex-col transition-shadow duration-300 hover:shadow-lg hover:shadow-brand-orange/10">
+    <div
+      onClick={() => onOpen(meal)}
+      onKeyDown={handleCardKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for ${meal.name}`}
+      className="group bg-white rounded-2xl border border-brand-peach overflow-hidden flex flex-col transition-shadow duration-300 hover:shadow-lg hover:shadow-brand-orange/10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-orange"
+    >
       <div className="aspect-[4/3] bg-brand-peach overflow-hidden">
-        {meal.image ? (
+        {meal.image && !imageFailed ? (
           <img
             src={meal.image}
             alt={meal.name}
+            onError={() => setImageFailed(true)}
             className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
           />
         ) : (
@@ -49,7 +69,12 @@ export const MealCard = ({ meal }: MealCardProps) => {
 
         <div className="flex items-center justify-between mt-3">
           <span className="font-bold text-brand-charcoal">
-            {meal.price.toFixed(2)} EGP
+            {(meal.price * (quantityInCart || 1)).toFixed(2)} EGP
+            {quantityInCart > 1 && (
+              <span className="block text-xs font-normal text-brand-charcoal/50">
+                {quantityInCart} × {meal.price.toFixed(2)}
+              </span>
+            )}
           </span>
 
           {!meal.isAvailable ? (
@@ -59,18 +84,26 @@ export const MealCard = ({ meal }: MealCardProps) => {
           ) : quantityInCart === 0 ? (
             <button
               type="button"
-              onClick={() => dispatch(addItem({ mealId: meal._id }))}
-              className="px-4 py-1.5 bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-medium rounded-lg transition cursor-pointer"
+              onClick={(e) => {
+                stopPropagation(e);
+                dispatch(addItem({ mealId: meal._id }));
+              }}
+              // 48px touch target, text-2xl + leading-none so the glyph
+              // itself sits dead-center in the circle instead of looking
+              // small/low (a font's line-height throws off "+"/"−"
+              // vertical centering at small sizes).
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-brand-orange hover:bg-brand-orange-dark text-white text-2xl leading-none font-bold transition cursor-pointer"
+              aria-label={`Add ${meal.name} to cart`}
             >
-              Add
+              +
             </button>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2" onClick={stopPropagation}>
               <button
                 type="button"
                 onClick={() => dispatch(decrementItem({ mealId: meal._id }))}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-brand-peach hover:bg-brand-orange/20 text-brand-charcoal font-bold transition cursor-pointer"
-                aria-label="Decrease quantity"
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-brand-peach hover:bg-brand-orange/20 text-brand-charcoal text-2xl leading-none font-bold transition cursor-pointer"
+                aria-label={`Decrease ${meal.name} quantity`}
               >
                 −
               </button>
@@ -80,8 +113,8 @@ export const MealCard = ({ meal }: MealCardProps) => {
               <button
                 type="button"
                 onClick={() => dispatch(incrementItem({ mealId: meal._id }))}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-brand-orange hover:bg-brand-orange-dark text-white font-bold transition cursor-pointer"
-                aria-label="Increase quantity"
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-brand-orange hover:bg-brand-orange-dark text-white text-2xl leading-none font-bold transition cursor-pointer"
+                aria-label={`Increase ${meal.name} quantity`}
               >
                 +
               </button>

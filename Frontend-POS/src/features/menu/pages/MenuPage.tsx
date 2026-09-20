@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAppDispatch } from "../../../app/hooks";
 import { setTableFromUrl } from "../../cart/cartSlice";
+import { CartBar } from "../../cart/components/CartBar";
 import { useGetMealsQuery, useGetCategoriesQuery } from "../menuApiSlice";
 import { useDebounce } from "../../../hooks/useDebounce";
+import { Navbar } from "../../../components/Navbar";
+import { MenuBanner } from "../components/MenuBanner";
 import { CategoryFilter } from "../components/CategoryFilter";
 import { SearchBar } from "../components/SearchBar";
 import { MealCard } from "../components/MealCard";
+import { MealDetailModal } from "../components/MealDetailModal";
+import type { Meal } from "../types/menu.types";
 
 export const MenuPage = () => {
   const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
 
   // 1️⃣ Sync ?table= from the URL into the cart slice once per value change.
-  // setTableFromUrl itself decides whether that actually changes anything
-  // (see cartSlice: no-op if same table, clears items if a DIFFERENT table).
   const tableIdFromUrl = searchParams.get("table") ?? undefined;
   useEffect(() => {
     dispatch(setTableFromUrl(tableIdFromUrl));
@@ -27,7 +30,10 @@ export const MenuPage = () => {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput);
 
-  // 3️⃣ Data fetching
+  // 3️⃣ Meal detail modal - which meal (if any) is currently open
+  const [openMeal, setOpenMeal] = useState<Meal | null>(null);
+
+  // 4️⃣ Data fetching
   const {
     data: mealsData,
     isLoading: isMealsLoading,
@@ -44,9 +50,12 @@ export const MenuPage = () => {
   const meals = mealsData?.meals ?? [];
 
   return (
-    <div className="min-h-screen bg-brand-cream p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-brand-charcoal mb-4">Menu</h1>
+    <div className="min-h-screen bg-brand-cream">
+      <Navbar />
+
+      {/* pb-28 reserves room so the floating CartBar never covers the last row */}
+      <div className="max-w-6xl mx-auto p-4 md:p-8 pb-28">
+        <MenuBanner />
 
         <div className="mb-4">
           <SearchBar value={searchInput} onChange={setSearchInput} />
@@ -83,11 +92,17 @@ export const MenuPage = () => {
         {!isMealsLoading && !isMealsError && meals.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
             {meals.map((meal) => (
-              <MealCard key={meal._id} meal={meal} />
+              <MealCard key={meal._id} meal={meal} onOpen={setOpenMeal} />
             ))}
           </div>
         )}
       </div>
+
+      {openMeal && (
+        <MealDetailModal meal={openMeal} onClose={() => setOpenMeal(null)} />
+      )}
+
+      <CartBar />
     </div>
   );
 };
