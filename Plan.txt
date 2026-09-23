@@ -133,6 +133,21 @@ SECURITY & BUG FIXES LOG
   menu. Semantic colors (red for errors/403, green for success toasts)
   deliberately left untouched - brand color replaces neutral/structural
   color only, never a status signal.
+- [FRONTEND / UX] Menu page overhaul: added a sticky Navbar (brand mark +
+  "Dine-in" badge), a welcome banner, a MealDetailModal that opens on
+  card click, and a floating CartBar (bottom, rounded, hidden when the
+  cart is empty) - replacing the earlier bare grid-of-cards-with-an-
+  Add-button version. MealCard's "Add" button was replaced entirely by
+  the same +/- stepper used once an item is in the cart, shown from the
+  start.
+- [FRONTEND / A11Y] All +/- and add-to-cart buttons bumped to 48x48px
+  (with leading-none so the glyph sits visually centered, not just
+  flex-centered) - the app is used on a phone in a restaurant, not
+  clicked on desktop. MealCard is keyboard-operable (role="button",
+  tabIndex, Enter/Space, visible focus ring, aria-labels).
+  MealDetailModal closes on Escape and locks background scroll while
+  open. Broken image URLs fall back to the "No image" placeholder via
+  onError, not just missing ones.
 
 
 ========================================
@@ -161,19 +176,25 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     (see Fixes Log above for the bugs found and corrected along the way)
 
 --- Phase 3: Customer Journey - Menu & Cart (5 days) ---
-[✓] Menu page (/menu): meals + categories, live search, quick filtering
+[✓] Menu page (/menu): meals + categories, live search, quick filtering,
+    Navbar + welcome banner, meal detail modal, floating cart bar
     - cart Redux slice (mealId+quantity references only, localStorage-
-      persisted, tableId lives inside cart state - see Fixes/architecture
+      persisted, tableId lives inside cart state - see architecture
       notes) built alongside this as a prerequisite
-[ ] Dynamic QR/Table handling: read table number from URL (?table=4) and
-    persist it in session; sent as `table` on order creation (backend
-    support for this already done - see Fixes Log)
-    - NOTE: URL -> cart sync itself is done (setTableFromUrl wired into
-      MenuPage); what's left here is the checkout flow actually sending
-      `table` on order creation
-[ ] Cart page/drawer: review items, adjust quantities, remove items
+[ ] Cart page (/cart): review items, adjust quantities, remove items,
+    see the total (replaces the current "Coming Next" placeholder that
+    CartBar links to) <- CURRENT STEP
 [ ] Checkout page (/checkout): payment method selection (Cash / Online
-    via Paymob)
+    via Paymob), final "Confirm Order" that calls POST /api/orders
+[ ] Dynamic QR/Table handling - finish: send `table` (already sitting in
+    cart state, synced from ?table= since the Menu page) on order
+    creation at checkout
+    - REORDERED: this used to be listed right after Menu, but it isn't
+      independent work - it's the last piece added once Cart + Checkout
+      exist to actually submit an order through. Reading ?table= from
+      the URL and syncing it into the cart is already done (setTableFromUrl
+      wired into MenuPage) - what's left is a single field on the
+      checkout's order-creation call.
 
 --- Phase 4: Real-Time POS Dashboards & Sockets (7 days) ---
 [ ] Cashier Dashboard (/cashier):
@@ -269,11 +290,16 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 - Cart slice stores mealId+quantity references only, never a price/name
   snapshot - same "references over embedding" principle as Meal/Category
   on the backend. Price/name are read live from the meals RTK Query
-  cache at display time. tableId lives inside the cart's own state (not
-  in the localStorage key) - switching to a different table silently
-  clears the cart; landing on /menu without a table param is a no-op,
-  not a forced delivery/takeaway mode.
+  cache at display time (useCartSummary cross-references cart items
+  against a broad, unfiltered meals fetch to compute totals). tableId
+  lives inside the cart's own state (not in the localStorage key) -
+  switching to a different table silently clears the cart; landing on
+  /menu without a table param is a no-op, not a forced delivery/takeaway
+  mode.
 - Brand color tokens are defined once (index.css @theme) and reused via
   Tailwind utility classes everywhere - never a one-off hex value in a
   component. Semantic colors (error red, success green) are kept
   separate from brand color on purpose.
+- Plan.txt line ordering should reflect real dependencies, not just the
+  order features were originally imagined in - reorder items when a
+  dependency becomes clear instead of leaving a misleading checklist.
