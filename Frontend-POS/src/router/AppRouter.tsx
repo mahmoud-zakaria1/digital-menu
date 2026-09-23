@@ -9,6 +9,7 @@ import { ProtectedRoute } from "../features/auth/components/ProtectedRoute";
 import { RootRedirect } from "../features/auth/components/RootRedirect";
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
 import { MenuPage } from "../features/menu/pages/MenuPage";
+import { CartPage } from "../features/cart/pages/CartPage";
 
 const router = createBrowserRouter([
   // Public Routes
@@ -39,10 +40,14 @@ const router = createBrowserRouter([
       },
       {
         path: "/cart",
+        element: <CartPage />,
+      },
+      {
+        path: "/checkout",
         element: (
           <div className="min-h-screen bg-brand-cream flex items-center justify-center p-8">
             <p className="text-2xl font-bold text-brand-charcoal">
-              Cart Page (Coming Next)
+              Checkout Page (Coming Next)
             </p>
           </div>
         ),
