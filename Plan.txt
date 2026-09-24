@@ -181,10 +181,10 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     - cart Redux slice (mealId+quantity references only, localStorage-
       persisted, tableId lives inside cart state - see architecture
       notes) built alongside this as a prerequisite
-[ ] Cart page (/cart): review items, adjust quantities, remove items,
+[✓] Cart page (/cart): review items, adjust quantities, remove items,
     see the total (replaces the current "Coming Next" placeholder that
     CartBar links to) <- CURRENT STEP
-[ ] Checkout page (/checkout): payment method selection (Cash / Online
+[✓] Checkout page (/checkout): payment method selection (Cash / Online
     via Paymob), final "Confirm Order" that calls POST /api/orders
 [ ] Dynamic QR/Table handling - finish: send `table` (already sitting in
     cart state, synced from ?table= since the Menu page) on order
