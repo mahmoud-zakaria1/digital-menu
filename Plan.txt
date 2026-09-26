@@ -118,7 +118,7 @@ SECURITY & BUG FIXES LOG
   {success, message, user} envelope instead of the User object, so every
   role check in ProtectedRoute silently saw `undefined`. Fixed with
   transformResponse. Same pattern applied proactively to menuApiSlice
-  (getMeals/getCategories) to avoid repeating the bug.
+  and ordersApiSlice to avoid repeating the bug.
 - [FRONTEND / UX] Login now returns the user to the page they originally
   tried to reach (location.state.from) instead of a fixed role route;
   added RootRedirect so "/" sends an already-authenticated user straight
@@ -130,9 +130,9 @@ SECURITY & BUG FIXES LOG
   / brand-orange-dark / brand-peach, defined once via Tailwind v4 @theme
   in index.css) instead of the generic slate/blue scaffold default.
   Applied across auth pages, protected-route loading states, and the
-  menu. Semantic colors (red for errors/403, green for success toasts)
-  deliberately left untouched - brand color replaces neutral/structural
-  color only, never a status signal.
+  menu/cart/checkout flow. Semantic colors (red for errors/403, green
+  for success toasts) deliberately left untouched - brand color replaces
+  neutral/structural color only, never a status signal.
 - [FRONTEND / UX] Menu page overhaul: added a sticky Navbar (brand mark +
   "Dine-in" badge), a welcome banner, a MealDetailModal that opens on
   card click, and a floating CartBar (bottom, rounded, hidden when the
@@ -148,6 +148,13 @@ SECURITY & BUG FIXES LOG
   MealDetailModal closes on Escape and locks background scroll while
   open. Broken image URLs fall back to the "No image" placeholder via
   onError, not just missing ones.
+- [FRONTEND / FIX] CheckoutPage originally prefilled the phone field from
+  the user's profile via useEffect + setState - a pattern React's own
+  docs ("You Might Not Need an Effect") and eslint-plugin-react-hooks'
+  newer rule both flag as causing an avoidable extra render. Replaced
+  with the recommended pattern: adjusting state directly during render,
+  guarded by a comparison so it only fires once when the profile value
+  actually arrives, not on every render.
 
 
 ========================================
@@ -175,28 +182,26 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 [✓] Access-denied handling for unauthorized dashboard access
     (see Fixes Log above for the bugs found and corrected along the way)
 
---- Phase 3: Customer Journey - Menu & Cart (5 days) ---
+--- Phase 3: Customer Journey - Menu & Cart (5 days) --- [STATUS: COMPLETE]
 [✓] Menu page (/menu): meals + categories, live search, quick filtering,
     Navbar + welcome banner, meal detail modal, floating cart bar
     - cart Redux slice (mealId+quantity references only, localStorage-
       persisted, tableId lives inside cart state - see architecture
       notes) built alongside this as a prerequisite
 [✓] Cart page (/cart): review items, adjust quantities, remove items,
-    see the total (replaces the current "Coming Next" placeholder that
-    CartBar links to) <- CURRENT STEP
-[✓] Checkout page (/checkout): payment method selection (Cash / Online
-    via Paymob), final "Confirm Order" that calls POST /api/orders
-[ ] Dynamic QR/Table handling - finish: send `table` (already sitting in
-    cart state, synced from ?table= since the Menu page) on order
-    creation at checkout
-    - REORDERED: this used to be listed right after Menu, but it isn't
-      independent work - it's the last piece added once Cart + Checkout
-      exist to actually submit an order through. Reading ?table= from
-      the URL and syncing it into the cart is already done (setTableFromUrl
-      wired into MenuPage) - what's left is a single field on the
-      checkout's order-creation call.
+    handles a meal that's been deleted from the menu since being added
+[✓] Checkout page (/checkout): auto-detects Dine-in from cart's tableId,
+    otherwise Delivery/Takeaway selection (address required for
+    Delivery only); phone prefilled from profile, editable; Cash
+    payment fully functional, Online (Paymob) shown but disabled -
+    "Coming in Phase 5" per the phase-separation decision below
+[✓] Dynamic QR/Table handling - DONE: reading ?table= from the URL and
+    syncing it into the cart was done alongside the Menu page
+    (setTableFromUrl); sending it on order creation is done as part of
+    Checkout (table included in the POST /api/orders payload whenever
+    the cart is Dine-in)
 
---- Phase 4: Real-Time POS Dashboards & Sockets (7 days) ---
+--- Phase 4: Real-Time POS Dashboards & Sockets (7 days) --- [CURRENT PHASE]
 [ ] Cashier Dashboard (/cashier):
     [ ] Live incoming-orders view (Kanban board or list view)
     [ ] Socket.io-client integration for real-time order status updates
@@ -212,12 +217,14 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 
 --- Phase 5: Payments, Live Tracking & Polish (4 days) ---
 [ ] Customer order-tracking page (/orders/:id/track): live screen that
-    listens only to that order's socket room
+    listens only to that order's socket room - also replaces the inline
+    "Order Placed!" confirmation CheckoutPage currently shows
 [ ] Price reconciliation: after order creation, replace the locally
     computed cart total with the server-returned order total before
     proceeding to payment (never trust the client-side calc for the
     amount actually charged)
-[ ] Paymob checkout flow: redirect + success/callback handling
+[ ] Paymob checkout flow: redirect + success/callback handling, enable
+    the Online Payment option in CheckoutPage
 [ ] Responsive design: mobile-first for Customer/Cashier, larger-screen
     layout for Admin
 
@@ -240,8 +247,8 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     - Socket reconnect handling strategy
     - Screenshots/GIFs of dashboards and live order tracking
 
-[✓] Connect frontend to backend APIs - auth + menu domains done, orders/
-    payments/tables endpoints still to be wired up in later phases
+[✓] Connect frontend to backend APIs - auth, menu, and orders domains
+    done; payments/tables endpoints still to be wired up in Phase 4/5
 [ ] Socket.io client integration: reconnect logic + re-join tracked-order
     rooms on reconnect
 
@@ -262,6 +269,18 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
 - Category existence check on Table.currentOrder reference (minor gap)
 - Admin-only "create staff account" endpoint (POST /api/users/staff or
   similar) so Admin/Cashier accounts don't require manual DB edits
+- Reservation deposits: distinct from a Dine-in order (which assumes the
+  customer is already physically at the table) - a true Reservation
+  (book a table for a future date/time, before arriving) with a
+  refundable deposit to cut down on no-shows: full refund if cancelled
+  in time, partial refund if not, forfeited on no-show. Would need: its
+  own Reservation entity (date/time, table availability, distinct from
+  Table.status="Reserved" which is currently Admin/Cashier-only), a
+  Payment tied to the reservation rather than an order, and a partial-
+  refund flow through Paymob (the backend currently only has a webhook
+  that records success/failure - no refund endpoint exists yet).
+  Deliberately not started until Cashier/Admin dashboards, working
+  Paymob payments, and live tracking (Phases 4-5) are done first.
 
 ========================================
 KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
@@ -290,12 +309,12 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 - Cart slice stores mealId+quantity references only, never a price/name
   snapshot - same "references over embedding" principle as Meal/Category
   on the backend. Price/name are read live from the meals RTK Query
-  cache at display time (useCartSummary cross-references cart items
-  against a broad, unfiltered meals fetch to compute totals). tableId
-  lives inside the cart's own state (not in the localStorage key) -
-  switching to a different table silently clears the cart; landing on
-  /menu without a table param is a no-op, not a forced delivery/takeaway
-  mode.
+  cache at display time (useCartLines cross-references cart items
+  against a broad, unfiltered meals fetch; useCartSummary reuses it).
+  tableId lives inside the cart's own state (not in the localStorage
+  key) - switching to a different table silently clears the cart;
+  landing on /menu without a table param is a no-op, not a forced
+  delivery/takeaway mode.
 - Brand color tokens are defined once (index.css @theme) and reused via
   Tailwind utility classes everywhere - never a one-off hex value in a
   component. Semantic colors (error red, success green) are kept
@@ -303,3 +322,11 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 - Plan.txt line ordering should reflect real dependencies, not just the
   order features were originally imagined in - reorder items when a
   dependency becomes clear instead of leaving a misleading checklist.
+- Dine-in (customer already at a table, ordering now) and Reservation
+  (booking a table for later, before arriving) are deliberately treated
+  as two different concepts, not two states of the same feature - see
+  the reservation-deposit Future Idea above.
+- React state that mirrors an external/async value (like prefilling a
+  form from a profile fetch) is adjusted directly during render with a
+  guarded comparison, not via useEffect + setState - avoids an
+  unnecessary extra render and matches React's own recommended pattern.

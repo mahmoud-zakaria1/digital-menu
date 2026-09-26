@@ -69,7 +69,7 @@ orderRouter.post("/", isVerifiedUser, createOrder);
  * @openapi
  * /api/orders/{id}/cancel:
  *   patch:
- *     summary: Cancel an order (Owner or Admin only, pending orders only)
+ *     summary: Cancel an order (Owner, Admin, or Cashier - pending orders only)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []

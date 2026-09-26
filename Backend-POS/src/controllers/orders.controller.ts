@@ -265,7 +265,11 @@ export const updateOrder = async (
   }
 };
 
-// 5️⃣ Cancel Order (Customer owner or Admin - only if order is still 'pending')
+// 5️⃣ Cancel Order (Customer owner, Admin, or Cashier - only if order is
+// still 'pending'). Previously Cashier was excluded here, meaning staff
+// running the day-to-day counter couldn't cancel a walk-back order
+// without escalating to Admin - corrected to treat Cashier as staff,
+// same as it's treated everywhere else in the system (isAdminOrCashier).
 export const cancelOrder = async (
   req: Request,
   res: Response,
@@ -279,11 +283,11 @@ export const cancelOrder = async (
     const order = await Order.findById(orderId);
     if (!assertExists(order, "Order", next)) return;
 
-    // Authorization check: User must own the order or be an Admin
+    // Authorization check: User must own the order, or be staff (Admin/Cashier)
     const isOwner = order.user.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === "Admin";
+    const isStaff = req.user.role === "Admin" || req.user.role === "Cashier";
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isStaff) {
       const error: any = new Error(
         "You are not authorized to cancel this order",
       );
