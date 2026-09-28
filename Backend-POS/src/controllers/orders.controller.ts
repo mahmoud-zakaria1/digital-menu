@@ -115,8 +115,18 @@ export const createOrder = async (
       });
     }
 
-    // Broadcast new order event to all connected dashboard/kitchen clients
-    io.emit("new_order", newOrder);
+    // Populate before broadcasting - dashboards listening for "new_order"
+    // need meal names/prices, the customer's name, and the table number
+    // immediately, the same shape getAllOrders already returns. Without
+    // this, a live-arriving order would render with blank meal names
+    // until the next full refetch.
+    const populatedOrder = await newOrder.populate([
+      { path: "user", select: "name email" },
+      { path: "meals.meal", select: "name price" },
+      { path: "table", select: "tableNo" },
+    ]);
+
+    io.emit("new_order", populatedOrder);
 
     return res.status(201).json({
       success: true,
