@@ -11,6 +11,7 @@ import { UnauthorizedPage } from "../pages/UnauthorizedPage";
 import { MenuPage } from "../features/menu/pages/MenuPage";
 import { CartPage } from "../features/cart/pages/CartPage";
 import { CheckoutPage } from "../features/orders/pages/CheckoutPage";
+import { CashierDashboardPage } from "../features/orders/pages/CashierDashboardPage";
 
 const router = createBrowserRouter([
   // Public Routes
@@ -56,11 +57,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/cashier",
-        element: (
-          <div className="p-8 text-2xl font-bold">
-            Cashier Dashboard (Phase 4)
-          </div>
-        ),
+        element: <CashierDashboardPage />,
       },
     ],
   },
