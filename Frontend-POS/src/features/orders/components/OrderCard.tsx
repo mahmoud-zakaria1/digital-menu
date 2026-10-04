@@ -15,10 +15,23 @@ const NEXT_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
 const getOrderTypeLabel = (order: Order): string => {
   if (order.table) {
     const tableNo =
-      typeof order.table === "string" ? undefined : order.table?.tableNo;
+      typeof order.table === "string" ? undefined : order.table.tableNo;
     return tableNo ? `Table ${tableNo}` : "Dine-in";
   }
   return order.address ? "Delivery" : "Takeaway";
+};
+
+// A populated reference (user/meal) can resolve to null if the document
+// it pointed to was deleted after the order was placed - never assume
+// it's always a full object just because it isn't a string id.
+const getCustomerName = (order: Order): string => {
+  if (!order.user) return "Unknown customer";
+  return typeof order.user === "string" ? "Customer" : order.user.name;
+};
+
+const getMealName = (meal: Order["meals"][number]["meal"]): string => {
+  if (!meal) return "Unavailable item";
+  return typeof meal === "string" ? "Unknown item" : meal.name;
 };
 
 export const OrderCard = ({
@@ -28,10 +41,7 @@ export const OrderCard = ({
   isBusy,
 }: OrderCardProps) => {
   const nextLabel = NEXT_STATUS_LABEL[order.status];
-  const customerName =
-    !order.user || typeof order.user === "string"
-      ? "Customer"
-      : (order.user?.name ?? "Customer");
+  const customerName = getCustomerName(order);
 
   return (
     <div className="bg-white rounded-xl border border-brand-peach p-4 space-y-3">
@@ -62,19 +72,13 @@ export const OrderCard = ({
       </div>
 
       <ul className="text-sm text-brand-charcoal/70 space-y-1">
-        {order.meals.map((item, idx) => {
-          const mealName =
-            !item.meal || typeof item.meal === "string"
-              ? "Unknown item"
-              : (item.meal?.name ?? "Unknown item");
-          return (
-            <li key={idx} className="flex justify-between">
-              <span>
-                {item.quantity} × {mealName}
-              </span>
-            </li>
-          );
-        })}
+        {order.meals.map((item, idx) => (
+          <li key={idx} className="flex justify-between">
+            <span>
+              {item.quantity} × {getMealName(item.meal)}
+            </span>
+          </li>
+        ))}
       </ul>
 
       <div className="flex items-center justify-between pt-2 border-t border-brand-peach">
