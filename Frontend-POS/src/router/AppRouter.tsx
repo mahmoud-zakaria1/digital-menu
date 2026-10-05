@@ -12,6 +12,7 @@ import { MenuPage } from "../features/menu/pages/MenuPage";
 import { CartPage } from "../features/cart/pages/CartPage";
 import { CheckoutPage } from "../features/orders/pages/CheckoutPage";
 import { CashierDashboardPage } from "../features/orders/pages/CashierDashboardPage";
+import { AdminDashboardPage } from "../features/admin/pages/AdminDashboardPage";
 
 const router = createBrowserRouter([
   // Public Routes
@@ -68,11 +69,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/admin",
-        element: (
-          <div className="p-8 text-2xl font-bold">
-            Admin Dashboard (Phase 5)
-          </div>
-        ),
+        element: <AdminDashboardPage />,
       },
     ],
   },
