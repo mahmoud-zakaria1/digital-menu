@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm , useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { mealSchema, type MealFormData } from "../schemas/meal.schema";
@@ -30,7 +30,7 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
     handleSubmit,
     reset,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<MealFormData>({
     resolver: zodResolver(mealSchema),
@@ -44,7 +44,10 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
     },
   });
 
-  const imageUrl = watch("image");
+  const imageUrl = useWatch({
+    control,
+    name: "image",
+  });
 
   // Prefill when editing. meal._id never changes for a given modal
   // instance, so this only runs once per meal being edited.
