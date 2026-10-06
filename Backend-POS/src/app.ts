@@ -10,11 +10,12 @@ import mealRouter from "./routes/meals.route.js";
 import tableRouter from "./routes/tables.route.js";
 import categoryRouter from "./routes/categories.route.js";
 import paymentRouter from "./routes/payments.route.js";
+import uploadRouter from "./routes/uploads.route.js";
 import cookieParser from "cookie-parser";
 import { socketAuthMiddleware } from "./middlewares/socketAuth.js";
 import Order from "./models/order.schema.js";
 import swaggerUi from "swagger-ui-express";
-import { swaggerSpec} from "./config/swagger.js"
+import { swaggerSpec } from "./config/swagger.js";
 
 // 1️⃣ Initialize Express App & HTTP Server
 const app = express();
@@ -48,6 +49,7 @@ app.use("/api/meals", mealRouter);
 app.use("/api/tables", tableRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/payments", paymentRouter);
+app.use("/api/uploads", uploadRouter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 6️⃣ Catch-all 404 Handler for Unmatched Routes

@@ -11,6 +11,9 @@ interface Config {
   paymobSecretKey: string;
   paymobIntegrationId: string;
   paymobHmacSecret: string;
+  cloudinaryCloudName: string;
+  cloudinaryApiKey: string;
+  cloudinaryApiSecret: string;
 }
 
 const config: Config = Object.freeze({
@@ -23,6 +26,9 @@ const config: Config = Object.freeze({
   paymobSecretKey: process.env.PAYMOB_SECRET_KEY || "",
   paymobIntegrationId: process.env.PAYMOB_INTEGRATION_ID || "",
   paymobHmacSecret: process.env.PAYMOB_HMAC_SECRET || "",
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || "",
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || "",
 });
 
 export default config;
