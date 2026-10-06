@@ -198,7 +198,66 @@ export const getAllOrders = async (
   }
 };
 
-// 3️⃣ Get Single Order By ID
+// 3️⃣ Get Order Stats (Admin-only analytics for the dashboard)
+// Revenue counts "completed" orders only - money for a still-pending or
+// cancelled order hasn't actually been earned yet. Active orders covers
+// anything currently in the pending/preparing pipeline.
+export const getOrderStats = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const [revenueResult, activeOrders, bestSellingMeals] = await Promise.all([
+      Order.aggregate([
+        { $match: { status: "completed" } },
+        { $group: { _id: null, totalRevenue: { $sum: "$totalPrice" } } },
+      ]),
+      Order.countDocuments({ status: { $in: ["pending", "preparing"] } }),
+      Order.aggregate([
+        { $unwind: "$meals" },
+        {
+          $group: {
+            _id: "$meals.meal",
+            totalQuantity: { $sum: "$meals.quantity" },
+          },
+        },
+        { $sort: { totalQuantity: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: "meals",
+            localField: "_id",
+            foreignField: "_id",
+            as: "meal",
+          },
+        },
+        { $unwind: "$meal" },
+        {
+          $project: {
+            _id: 0,
+            mealId: "$meal._id",
+            name: "$meal.name",
+            totalQuantity: 1,
+          },
+        },
+      ]),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalRevenue: revenueResult[0]?.totalRevenue ?? 0,
+        activeOrders,
+        bestSellingMeals,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 4️⃣ Get Single Order By ID
 export const getOrderById = async (
   req: Request,
   res: Response,
@@ -230,7 +289,7 @@ const ALLOWED_TRANSITION: Record<string, string[]> = {
   cancelled: [],
 };
 
-// 4️⃣ Update Order Status (Enforces State Machine transitions)
+// 5️⃣ Update Order Status (Enforces State Machine transitions)
 export const updateOrder = async (
   req: Request,
   res: Response,
@@ -275,11 +334,8 @@ export const updateOrder = async (
   }
 };
 
-// 5️⃣ Cancel Order (Customer owner, Admin, or Cashier - only if order is
-// still 'pending'). Previously Cashier was excluded here, meaning staff
-// running the day-to-day counter couldn't cancel a walk-back order
-// without escalating to Admin - corrected to treat Cashier as staff,
-// same as it's treated everywhere else in the system (isAdminOrCashier).
+// 6️⃣ Cancel Order (Customer owner, Admin, or Cashier - only if order is
+// still 'pending').
 export const cancelOrder = async (
   req: Request,
   res: Response,
@@ -346,7 +402,7 @@ export const cancelOrder = async (
   }
 };
 
-// 6️⃣ Hard Delete Order (Admin only maintenance)
+// 7️⃣ Hard Delete Order (Admin only maintenance)
 export const deleteOrder = async (
   req: Request,
   res: Response,

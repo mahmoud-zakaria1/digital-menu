@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createOrder,
   getAllOrders,
+  getOrderStats,
   getOrderById,
   updateOrder,
   cancelOrder,
@@ -130,6 +131,27 @@ orderRouter.patch("/:id/cancel", isVerifiedUser, cancelOrder);
 orderRouter.get("/", isVerifiedUser, getAllOrders);
 
 // 2️⃣ Management & Cashier Routes
+
+/**
+ * @openapi
+ * /api/orders/stats:
+ *   get:
+ *     summary: Get order analytics (Admin only) - total revenue (completed orders), active order count, top 5 best-selling meals
+ *     tags: [Orders]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Stats retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Access denied - Admins only
+ */
+// IMPORTANT: this must come before GET /:id - otherwise Express would
+// match "/stats" as :id="stats" and send it into getOrderById instead,
+// which would then 400 on an invalid ObjectId.
+orderRouter.get("/stats", isVerifiedUser, isAdmin, getOrderStats);
 
 /**
  * @openapi
