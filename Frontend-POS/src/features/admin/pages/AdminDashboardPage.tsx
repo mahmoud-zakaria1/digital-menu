@@ -3,6 +3,7 @@ import { MealsTable } from "../components/MealsTable";
 import { CategoriesTable } from "../components/CategoriesTable";
 import { MealFormModal } from "../components/MealFormModal";
 import { CategoryFormModal } from "../components/CategoryFormModal";
+import { AnalyticsCards } from "../components/AnalyticsCards";
 import type { Meal, Category } from "../../menu/types/menu.types";
 
 type Tab = "meals" | "categories";
@@ -43,6 +44,8 @@ export const AdminDashboardPage = () => {
       </header>
 
       <div className="max-w-3xl mx-auto p-4 md:p-8">
+        <AnalyticsCards />
+
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">
             {(["meals", "categories"] as const).map((t) => (

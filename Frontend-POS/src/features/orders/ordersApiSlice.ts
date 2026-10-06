@@ -1,5 +1,5 @@
 import { apiSlice } from "../../api/apiSlice";
-import type { Order, OrderStatus } from "./types/order.types";
+import type { Order, OrderStats, OrderStatus } from "./types/order.types";
 
 export interface CreateOrderPayload {
   meals: { meal: string; quantity: number }[];
@@ -46,6 +46,11 @@ interface OrderMutationResponse {
   data: Order;
 }
 
+interface GetOrderStatsResponse {
+  success: boolean;
+  data: OrderStats;
+}
+
 export const ordersApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     createOrder: builder.mutation<Order, CreateOrderPayload>({
@@ -80,6 +85,16 @@ export const ordersApiSlice = apiSlice.injectEndpoints({
           : [{ type: "Order" as const, id: "LIST" }],
     }),
 
+    // Admin Dashboard analytics cards (revenue, active orders, best sellers)
+    getOrderStats: builder.query<OrderStats, void>({
+      query: () => ({
+        url: "/orders/stats",
+        method: "GET",
+      }),
+      transformResponse: (response: GetOrderStatsResponse) => response.data,
+      providesTags: [{ type: "Order", id: "STATS" }],
+    }),
+
     updateOrderStatus: builder.mutation<
       Order,
       { id: string; status: OrderStatus }
@@ -90,7 +105,10 @@ export const ordersApiSlice = apiSlice.injectEndpoints({
         data: { status },
       }),
       transformResponse: (response: OrderMutationResponse) => response.data,
-      invalidatesTags: (_result, _error, { id }) => [{ type: "Order", id }],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Order", id },
+        { type: "Order", id: "STATS" },
+      ],
     }),
 
     cancelOrder: builder.mutation<Order, string>({
@@ -99,7 +117,10 @@ export const ordersApiSlice = apiSlice.injectEndpoints({
         method: "PATCH",
       }),
       transformResponse: (response: OrderMutationResponse) => response.data,
-      invalidatesTags: (_result, _error, id) => [{ type: "Order", id }],
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Order", id },
+        { type: "Order", id: "STATS" },
+      ],
     }),
   }),
 });
@@ -107,6 +128,7 @@ export const ordersApiSlice = apiSlice.injectEndpoints({
 export const {
   useCreateOrderMutation,
   useGetOrdersQuery,
+  useGetOrderStatsQuery,
   useUpdateOrderStatusMutation,
   useCancelOrderMutation,
 } = ordersApiSlice;
