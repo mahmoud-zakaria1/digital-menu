@@ -8,6 +8,7 @@ import {
   useCreateMealMutation,
   useUpdateMealMutation,
 } from "../../menu/menuApiSlice";
+import { useUploadMealImageMutation } from "../uploadsApiSlice";
 import type { Meal } from "../../menu/types/menu.types";
 
 interface MealFormModalProps {
@@ -20,14 +21,18 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
   const { data: categories = [] } = useGetCategoriesQuery();
   const [createMeal, { isLoading: isCreating }] = useCreateMealMutation();
   const [updateMeal, { isLoading: isUpdating }] = useUpdateMealMutation();
+  const [uploadMealImage, { isLoading: isUploading }] =
+    useUploadMealImageMutation();
   const isSubmitting = isCreating || isUpdating;
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
-  } = useForm({
+  } = useForm<MealFormData>({
     resolver: zodResolver(mealSchema),
     defaultValues: {
       name: "",
@@ -38,6 +43,8 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
       isAvailable: true,
     },
   });
+
+  const imageUrl = watch("image");
 
   // Prefill when editing. meal._id never changes for a given modal
   // instance, so this only runs once per meal being edited.
@@ -53,6 +60,24 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
       isAvailable: meal.isAvailable,
     });
   }, [meal, reset]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const { url } = await uploadMealImage(file).unwrap();
+      setValue("image", url, { shouldValidate: true });
+      toast.success("Image uploaded");
+    } catch (err: unknown) {
+      const errorData = err as { data?: { message?: string } };
+      toast.error(errorData.data?.message || "Couldn't upload the image.");
+    } finally {
+      // Reset the file input so selecting the same file again still
+      // fires onChange (browsers don't fire change on an unchanged value).
+      e.target.value = "";
+    }
+  };
 
   const onSubmit = async (data: MealFormData) => {
     const payload = {
@@ -122,7 +147,7 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
               <input
                 type="number"
                 step="0.01"
-                {...register("price", { valueAsNumber: true})}
+                {...register("price", { valueAsNumber: true })}
                 className="w-full px-4 py-2.5 rounded-lg border border-brand-peach focus:ring-2 focus:ring-brand-orange/40 focus:border-brand-orange outline-none transition text-sm"
               />
               {errors.price && (
@@ -155,14 +180,46 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
             </div>
           </div>
 
+          {/* 📸 Image: upload a file (fills the URL below automatically)
+              or paste an external URL directly - either works. */}
           <div>
             <label className="block text-sm font-medium text-brand-charcoal mb-1">
-              Image URL (optional)
+              Image
             </label>
+
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-16 h-16 rounded-lg overflow-hidden bg-brand-peach flex-shrink-0">
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-brand-orange/40 text-[10px]">
+                    No image
+                  </div>
+                )}
+              </div>
+
+              <label className="flex-1">
+                <span className="inline-block px-3 py-2 rounded-lg border border-brand-peach text-sm text-brand-charcoal cursor-pointer hover:bg-brand-peach/40 transition">
+                  {isUploading ? "Uploading..." : "Choose file..."}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileChange}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
             <input
               type="text"
               {...register("image")}
-              placeholder="https://..."
+              placeholder="or paste an image URL"
               className="w-full px-4 py-2.5 rounded-lg border border-brand-peach focus:ring-2 focus:ring-brand-orange/40 focus:border-brand-orange outline-none transition text-sm"
             />
             {errors.image && (
@@ -191,7 +248,7 @@ export const MealFormModal = ({ meal, onClose }: MealFormModalProps) => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploading}
               className="flex-1 py-2.5 rounded-lg bg-brand-orange hover:bg-brand-orange-dark text-white font-medium transition disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? "Saving..." : "Save"}
