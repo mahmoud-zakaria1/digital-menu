@@ -7,7 +7,7 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
 [✓] Create a NPM Project and install all dependencies
     - dependencies
         - express mongoose dotenv bcrypt jsonwebtoken socket.io zod
-        - cors cookie-parser
+        - cors cookie-parser multer cloudinary
     - Dev dependencies
         - nodemon typescript tsx ts-node @types/*
         - jest ts-jest supertest @types/jest @types/supertest
@@ -33,6 +33,11 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] Login (JWT in httpOnly cookie, role included in payload)
         [✓] Auth Middleware (isVerifiedUser, isAdmin, isAdminOrCashier)
         [✓] Get Profile endpoint
+        [✓] Create Staff Account (POST /api/users/staff, Admin only) -
+            the sanctioned way to create Admin/Cashier accounts; role
+            restricted to Admin|Cashier
+        [✓] Logout (POST /api/users/logout) - clears the httpOnly cookie;
+            login and logout share one cookie-options constant
 
     - Category API's (NOT in original plan - added for filtering)
         [✓] GET (public), POST/PUT/DELETE (Admin only)
@@ -43,6 +48,11 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] Admin-only mutations, public read
         [✓] References Category via ObjectId (not free-text string)
         [✓] Duplicate name prevention
+
+    - Upload API's (Cloudinary) - added for the Admin Dashboard
+        [✓] POST /api/uploads/meal-image (Admin only): multer memory
+            storage (never touches disk), JPEG/PNG/WEBP only, 5MB cap,
+            streamed to Cloudinary, returns the URL stored in Meal.image
 
     - Table API's
         [✓] GET, POST, PUT, DELETE (expanded beyond original GET/POST-only plan)
@@ -63,12 +73,18 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
 
     - Order API's & Real-Time Flow
         [✓] POST Order -> server-side price calculation (prevents tampering)
-            -> Save to DB -> emit "new_order" to all connected clients
+            -> Save to DB -> emit "new_order" (populated payload) to all
+            connected clients
         [✓] GET Orders (all + by id)
+        [✓] GET /api/orders/stats (Admin only): total revenue (completed
+            orders only), active order count (pending + preparing), top 5
+            best-selling meals - MongoDB aggregation, declared BEFORE
+            GET /:id so Express doesn't read "stats" as an order id
         [✓] PATCH Order Status -> enforces state machine
             (pending -> preparing -> completed, cancelled is terminal)
             -> emit "status_changed" to order-specific room
-        [✓] Cancel Order (owner or Admin, pending-only, blocked if already paid)
+        [✓] Cancel Order (owner, Admin, or Cashier; pending-only, blocked
+            if already paid)
         [✓] Delete Order (Admin only, hard delete)
         [✓] Optional `table` field on order creation, validated + auto-linked
 
@@ -87,13 +103,19 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
       field rejection, state machine transitions
     - Admin test fixture now seeded directly via User.create() (see Fixes
       Log - public register no longer accepts a client-supplied role)
+    - NOT yet covered by tests: stats aggregation, staff creation, logout,
+      meal image upload (candidates for a later round)
 
 [✓] README.md
     - Architecture decisions, setup instructions, API overview, tech stack rationale
+    - TODO: API table + env var list need the newer endpoints
+      (staff, logout, stats, uploads) and CLOUDINARY_* variables
 
 [✓] Deploy (Backend)
     - CHANGED FROM PLAN: Railway first (quick deploy for job applications),
       then AWS/DigitalOcean later once frontend is built (learning goal)
+    - NOTE: CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET must also be set
+      in Railway's environment variables, not just the local .env
 
 
 ========================================
@@ -103,13 +125,21 @@ SECURITY & BUG FIXES LOG
   Zod schema. It previously accepted an optional `role` field on a route
   anyone can hit unauthenticated, meaning any visitor could self-register
   as Admin or Cashier. New accounts now always fall back to the Mongoose
-  schema default ("Customer"). Creating staff accounts is a separate,
-  privileged concern - not yet built as an endpoint (currently done by
-  editing the `role` field directly in MongoDB Atlas for dev/testing).
+  schema default ("Customer"). Staff accounts are created through the
+  separate Admin-only POST /api/users/staff endpoint (before it existed
+  this was done by editing `role` directly in MongoDB Atlas).
 - [BACKEND / FEATURE] Order can now reference the Table it came from
   (`table` field, optional). createOrder validates the table exists and
   automatically sets Table.currentOrder + status "Occupied" - staff no
   longer have to link them manually via PUT /api/tables/:id.
+- [BACKEND / PERMISSIONS] Cashier can now cancel pending orders. cancelOrder
+  only allowed the order's owner or an Admin, so the person running the
+  counter couldn't cancel an order without escalating. Cashier is now
+  treated as staff there, consistent with isAdminOrCashier everywhere else.
+- [BACKEND / BUG] The "new_order" socket event emitted the raw, unpopulated
+  document (meals.meal / user / table as bare ObjectIds), so a live-arriving
+  order would show blank meal names on the Cashier board until a refetch.
+  The order is now populated before emitting, matching getAllOrders' shape.
 - [FRONTEND / BUG] authApiSlice was calling /api/auth/* - corrected to
   /api/users/* to match the actual backend route prefix.
 - [FRONTEND / BUG] Register form + Zod schema were missing `phone`, which
@@ -117,8 +147,25 @@ SECURITY & BUG FIXES LOG
 - [FRONTEND / BUG] getProfile returned the backend's raw
   {success, message, user} envelope instead of the User object, so every
   role check in ProtectedRoute silently saw `undefined`. Fixed with
-  transformResponse. Same pattern applied proactively to menuApiSlice
-  and ordersApiSlice to avoid repeating the bug.
+  transformResponse. Same pattern applied proactively to menuApiSlice,
+  ordersApiSlice and the other slices to avoid repeating the bug.
+- [FRONTEND / BUG] OrderCard crashed ("Cannot read properties of null") on
+  an order whose user had been deleted: a populated ref resolves to null
+  when its document is gone, and `typeof null === "object"` slipped past
+  the string-vs-object check. Order types now model `| null` for
+  user / meal / table and the card handles it explicitly.
+- [FRONTEND / BUG] File uploads arrived at the server with no file.
+  axiosInstance fixes "Content-Type: application/json" as a default, which
+  stops the browser from setting the multipart boundary on a FormData body.
+  axiosBaseQuery now detects FormData centrally and drops that header, so
+  this is fixed for every current and future upload, not just one call.
+- [FRONTEND / BUG] MealFormModal type errors ("price: unknown", handleSubmit
+  signature) came from z.coerce.number(): its input type is `unknown` while
+  the inferred form type said `number`. Replaced with a plain z.number()
+  and valueAsNumber on the input's register call.
+- [FRONTEND / FIX] MealFormModal used form.watch("image"), which React
+  Compiler's lint rule flags as non-memoizable; switched to useWatch
+  (same live value, compiler-safe).
 - [FRONTEND / UX] Login now returns the user to the page they originally
   tried to reach (location.state.from) instead of a fixed role route;
   added RootRedirect so "/" sends an already-authenticated user straight
@@ -155,6 +202,12 @@ SECURITY & BUG FIXES LOG
   with the recommended pattern: adjusting state directly during render,
   guarded by a comparison so it only fires once when the profile value
   actually arrives, not on every render.
+- [FRONTEND / FEATURE] Logout. There was no way to end a session. The auth
+  cookie is httpOnly (JS can't clear it), so this needed a server endpoint;
+  the shared LogoutButton calls it, navigates to /login, then resets the
+  whole RTK Query cache so an Admin's orders/revenue don't linger in memory
+  for the next person on the same device. Added to the customer Navbar and
+  to the Cashier and Admin headers.
 
 
 ========================================
@@ -181,6 +234,8 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     and redirects based on permissions
 [✓] Access-denied handling for unauthorized dashboard access
     (see Fixes Log above for the bugs found and corrected along the way)
+[✓] Logout (added after Phase 4 - see Fixes Log): server clears the
+    httpOnly cookie, client resets the RTK Query cache
 
 --- Phase 3: Customer Journey - Menu & Cart (5 days) --- [STATUS: COMPLETE]
 [✓] Menu page (/menu): meals + categories, live search, quick filtering,
@@ -201,21 +256,34 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     Checkout (table included in the POST /api/orders payload whenever
     the cart is Dine-in)
 
---- Phase 4: Real-Time POS Dashboards & Sockets (7 days) --- [CURRENT PHASE]
-[ ] Cashier Dashboard (/cashier):
-    [ ] Live incoming-orders view (Kanban board or list view)
-    [ ] Socket.io-client integration for real-time order status updates
-    [ ] Audio notification (new-order beep) on "new_order" socket event
-    [ ] Quick status-change action (Pending -> Preparing -> Ready -> Completed)
-[ ] Admin Dashboard (/admin):
-    [ ] Full CRUD UI for menu (meals + categories)
-    [ ] Meal image upload & management
-    [ ] Quick analytics cards (total revenue, active orders, best-selling
-        meals)
-    [ ] "Create staff account" UI once the backend endpoint exists (see
-        Future Ideas) - replaces manual role edits in Atlas
+--- Phase 4: Real-Time POS Dashboards & Sockets (7 days) --- [STATUS: COMPLETE]
+[✓] Cashier Dashboard (/cashier):
+    [✓] Live incoming-orders view: Kanban board, 3 columns (Pending /
+        Preparing / Completed), forward-only action buttons instead of
+        free drag-and-drop because the backend state machine only allows
+        one direction; Cancel on pending cards
+    [✓] Socket.io-client integration: connects only while the dashboard
+        is mounted, patches new_order / status_changed straight into the
+        getOrders RTK Query cache (no polling, no refetch flicker)
+    [✓] Audio notification on "new_order" (requires an actual file at
+        public/sounds/new-order.mp3; silently skipped if the browser
+        blocks autoplay before a user gesture)
+    [✓] Quick status-change action (Pending -> Preparing -> Completed).
+        NOTE: the original plan said "Pending -> Preparing -> Ready ->
+        Completed", but the backend state machine has no "Ready" state,
+        so the board follows the backend: pending -> preparing -> completed
+[✓] Admin Dashboard (/admin):
+    [✓] Full CRUD UI for menu (meals + categories), one modal handles
+        create + edit; category delete surfaces the backend's real
+        "still used by N meals" message
+    [✓] Meal image upload & management (Cloudinary): file picker that
+        auto-fills the image URL, live preview, paste-a-URL fallback
+    [✓] Analytics cards (total revenue from completed orders, active
+        orders, top 5 best-selling meals)
+    [✓] "Create staff account" UI (+ New Staff modal -> POST
+        /api/users/staff) - replaces manual role edits in Atlas
 
---- Phase 5: Payments, Live Tracking & Polish (4 days) ---
+--- Phase 5: Payments, Live Tracking & Polish (4 days) --- [CURRENT PHASE]
 [ ] Customer order-tracking page (/orders/:id/track): live screen that
     listens only to that order's socket room - also replaces the inline
     "Order Placed!" confirmation CheckoutPage currently shows
@@ -236,8 +304,7 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
         src/styles/main.scss         (entry point)
 [✓] Unified brand design tokens (Tailwind v4 @theme) applied app-wide -
     see Fixes Log
-[ ] Audio tones on the Cashier dashboard for new_order socket events
-    (new Audio('/sounds/new-order.mp3').play())
+[✓] Audio tones on the Cashier dashboard for new_order socket events
 [ ] Optimistic Updates in RTK Query for order status changes (instant UI
     update, automatic rollback + Toast error on failed request)
 [ ] Skeleton loaders (Shadcn UI Skeleton or custom SCSS) instead of plain
@@ -247,15 +314,28 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     - Socket reconnect handling strategy
     - Screenshots/GIFs of dashboards and live order tracking
 
-[✓] Connect frontend to backend APIs - auth, menu, and orders domains
-    done; payments/tables endpoints still to be wired up in Phase 4/5
-[ ] Socket.io client integration: reconnect logic + re-join tracked-order
-    rooms on reconnect
+[✓] Connect frontend to backend APIs - auth, menu, orders, uploads,
+    staff and stats done; payments still to be wired up in Phase 5
+[ ] Socket.io client reconnect logic + re-join tracked-order rooms on
+    reconnect (relevant to the Phase 5 tracking page; staff_room is
+    joined automatically by the server on every connect)
 
 
 ========================================
 PHASE 2 / FUTURE IDEAS (documented, not built yet)
 ========================================
+- Table management + QR generation in the Admin Dashboard: the customer
+  flow depends on /menu?table=<id> links, but there is currently no UI to
+  create tables or generate a printable QR per table (tables exist only via
+  Swagger/Postman). Strong candidate right after Phase 5 - the QR ordering
+  story isn't demo-able end to end without it.
+- Staff management list (view / deactivate / change role) - creation is
+  done, but there is no GET /api/users endpoint or UI to see who has staff
+  access
+- Analytics date ranges (today / this week / this month): the stats
+  endpoint currently aggregates all-time totals
+- Takeaway ready-time estimate / "your order is ready" notification so the
+  Order Ahead flow tells the customer when to arrive
 - Meal discounts / promotions
     - Decision needed: percentage vs fixed amount
     - Likely needs separate "Promotion" collection (with start/end dates)
@@ -264,11 +344,10 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
     - Must be a separate field (e.g. membershipTier) - NOT mixed into
       existing `role` field, which represents system permissions, not
       marketing/loyalty status
-- Pagination on Order.find() / heavier list endpoints (not needed yet at
-  current scale, but noted as the real future bottleneck vs data structure)
+- Pagination on Order.find() / heavier list endpoints: the Cashier board
+  fetches one page of 100 and splits it by status client-side - fine at
+  demo scale, the real bottleneck for a busy restaurant
 - Category existence check on Table.currentOrder reference (minor gap)
-- Admin-only "create staff account" endpoint (POST /api/users/staff or
-  similar) so Admin/Cashier accounts don't require manual DB edits
 - Reservation deposits: distinct from a Dine-in order (which assumes the
   customer is already physically at the table) - a true Reservation
   (book a table for a future date/time, before arriving) with a
@@ -279,8 +358,8 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
   Payment tied to the reservation rather than an order, and a partial-
   refund flow through Paymob (the backend currently only has a webhook
   that records success/failure - no refund endpoint exists yet).
-  Deliberately not started until Cashier/Admin dashboards, working
-  Paymob payments, and live tracking (Phases 4-5) are done first.
+  Deliberately not started until the Phase 5 payment + tracking work is
+  done first.
 
 ========================================
 KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
@@ -290,6 +369,9 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
   Bearer support later if a mobile app or third-party API access is added.
   -> Frontend MUST use withCredentials: true on every request (Axios/RTK
      Query base config) or auth will silently fail via CORS.
+  -> Because the cookie is httpOnly, logout has to be a server call that
+     clears it; login and logout share one cookie-options constant so
+     clearCookie always matches the attributes the cookie was set with.
 - All ObjectId string->ObjectId conversions go through a single
   toObjectId() helper (validates + converts, throws 400 on invalid format)
 - All Zod validators use .strict() to reject unexpected fields
@@ -304,8 +386,10 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
   eliminate repeated null checks across controllers
 - Public routes never accept a client-supplied `role`, `totalPrice`, or
   any other field that determines trust/money - those are always
-  server-derived or Admin-only. This is now a running principle, not a
-  one-off fix (see Security & Bug Fixes Log).
+  server-derived or Admin-only. Privileged capabilities (creating staff)
+  live on separate Admin-only endpoints rather than as optional fields on
+  public ones. This is a running principle, not a one-off fix (see
+  Security & Bug Fixes Log).
 - Cart slice stores mealId+quantity references only, never a price/name
   snapshot - same "references over embedding" principle as Meal/Category
   on the backend. Price/name are read live from the meals RTK Query
@@ -330,3 +414,25 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
   form from a profile fetch) is adjusted directly during render with a
   guarded comparison, not via useEffect + setState - avoids an
   unnecessary extra render and matches React's own recommended pattern.
+- Real-time dashboards: initial load over REST, then socket events are
+  patched directly into the RTK Query cache (updateQueryData) instead of
+  polling or refetching. The socket lives only while the dashboard is
+  mounted, and the query args are exported from one place so cache
+  patches always hit the right cache entry.
+- Order board moves are forward-only buttons, not free drag-and-drop,
+  because the backend state machine only permits one direction
+  (pending -> preparing -> completed; cancelled is terminal).
+- Image uploads go to Cloudinary through multer's MEMORY storage and are
+  streamed straight on - never written to disk, because Railway's
+  filesystem is ephemeral and disk-stored files would vanish on the next
+  deploy. The Cloudinary credentials live only in the backend env; the
+  frontend never sees a secret, it just receives the resulting URL.
+- Express route order matters: static paths (GET /orders/stats) are
+  declared before parameterised ones (GET /orders/:id), otherwise the
+  param route swallows them.
+- Anything that sends FormData goes through the shared axiosBaseQuery,
+  which drops the instance's fixed JSON Content-Type for FormData bodies
+  so the browser can set the multipart boundary itself.
+- Logout resets the entire RTK Query cache (apiSlice.util.resetApiState)
+  so one user's cached data (an Admin's orders, revenue) never outlives
+  their session on a shared device.
