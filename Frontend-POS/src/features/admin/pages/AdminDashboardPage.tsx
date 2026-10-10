@@ -3,6 +3,7 @@ import { MealsTable } from "../components/MealsTable";
 import { CategoriesTable } from "../components/CategoriesTable";
 import { MealFormModal } from "../components/MealFormModal";
 import { CategoryFormModal } from "../components/CategoryFormModal";
+import { StaffFormModal } from "../components/StaffFormModal";
 import { AnalyticsCards } from "../components/AnalyticsCards";
 import type { Meal, Category } from "../../menu/types/menu.types";
 
@@ -16,6 +17,8 @@ export const AdminDashboardPage = () => {
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
   const openNewMeal = () => {
     setEditingMeal(null);
@@ -37,10 +40,18 @@ export const AdminDashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-brand-cream">
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-brand-peach px-4 md:px-8 py-3">
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-brand-peach px-4 md:px-8 py-3 flex items-center justify-between">
         <span className="text-lg font-extrabold text-brand-charcoal tracking-tight">
           Admin<span className="text-brand-orange">Dashboard</span>
         </span>
+
+        <button
+          type="button"
+          onClick={() => setIsStaffModalOpen(true)}
+          className="px-3 py-1.5 rounded-lg border border-brand-orange text-brand-orange hover:bg-brand-orange hover:text-white text-sm font-semibold transition cursor-pointer"
+        >
+          + New Staff
+        </button>
       </header>
 
       <div className="max-w-3xl mx-auto p-4 md:p-8">
@@ -92,6 +103,10 @@ export const AdminDashboardPage = () => {
           category={editingCategory ?? undefined}
           onClose={() => setIsCategoryModalOpen(false)}
         />
+      )}
+
+      {isStaffModalOpen && (
+        <StaffFormModal onClose={() => setIsStaffModalOpen(false)} />
       )}
     </div>
   );
