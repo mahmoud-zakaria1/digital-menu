@@ -2,9 +2,10 @@ import express from "express";
 import {
   login,
   register,
+  createStaff,
   getProfile,
 } from "../controllers/users.controller.js";
-import { isVerifiedUser } from "../middlewares/tokenVerfication.js";
+import { isVerifiedUser, isAdmin } from "../middlewares/tokenVerfication.js";
 
 const userRouter = express.Router();
 
@@ -13,7 +14,7 @@ const userRouter = express.Router();
  * @openapi
  * /api/users/register:
  *   post:
- *     summary: Register a new user account (Public)
+ *     summary: Register a new customer account (Public) - always created with the Customer role
  *     tags: [Users]
  *     requestBody:
  *       required: true
@@ -40,11 +41,6 @@ const userRouter = express.Router();
  *               age:
  *                 type: integer
  *                 example: 25
- *               role:
- *                 type: string
- *                 enum: [Admin, Cashier, Customer]
- *                 default: Customer
- *                 example: Customer
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -101,5 +97,54 @@ userRouter.post("/login", login);
  *         description: User not found
  */
 userRouter.get("/profile", isVerifiedUser, getProfile);
+
+// 3️⃣ Admin Only Routes
+/**
+ * @openapi
+ * /api/users/staff:
+ *   post:
+ *     summary: Create a staff account - Admin or Cashier (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, phone, password, role]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Sara Cashier
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: sara@restaurant.com
+ *               phone:
+ *                 type: string
+ *                 example: "+201000000001"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "StrongP@ss123"
+ *               role:
+ *                 type: string
+ *                 enum: [Admin, Cashier]
+ *                 example: Cashier
+ *     responses:
+ *       201:
+ *         description: Staff account created successfully
+ *       400:
+ *         description: User already exists or validation error
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Access denied - Admins only
+ *       409:
+ *         description: Phone number already in use
+ */
+userRouter.post("/staff", isVerifiedUser, isAdmin, createStaff);
 
 export default userRouter;

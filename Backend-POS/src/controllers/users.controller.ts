@@ -4,6 +4,7 @@ import User from "../models/user.schema.js";
 import config from "../config/config.js";
 import {
   registerValidate,
+  createStaffValidate,
   loginValidate,
 } from "../validators/user.validator.js";
 import { assertUser, assertExists } from "../utils/assertions.js";
@@ -44,7 +45,47 @@ export const register = async function (
   }
 };
 
-// 2️⃣ User Login & JWT Cookie Issuance
+// 2️⃣ Create Staff Account (Admin only - gated at the route level)
+// The sanctioned way to create Admin/Cashier accounts. The public
+// register endpoint can never assign these roles; this one can, but
+// only for an authenticated Admin.
+export const createStaff = async function (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const validateData = createStaffValidate.parse(req.body);
+
+    const isUserPresent = await User.findOne({ email: validateData.email });
+    if (isUserPresent) {
+      const error: any = new Error("User already exists!");
+      error.statusCode = 400;
+      return next(error);
+    }
+
+    // Same save() path as register, so the pre('save') hook hashes the
+    // password here too. A duplicate phone is caught by the unique index
+    // and turned into a 409 by the global error handler.
+    const newUser = new User(validateData);
+    await newUser.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Staff account created successfully",
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+      },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+// 3️⃣ User Login & JWT Cookie Issuance
 export const login = async function (
   req: Request,
   res: Response,
@@ -95,7 +136,7 @@ export const login = async function (
   }
 };
 
-// 3️⃣ Get Current Authenticated User Profile
+// 4️⃣ Get Current Authenticated User Profile
 export const getProfile = async function (
   req: Request,
   res: Response,
