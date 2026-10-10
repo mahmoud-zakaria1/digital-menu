@@ -7,6 +7,7 @@ import {
 } from "../ordersApiSlice";
 import { useOrdersSocket, ORDERS_QUERY_ARGS } from "../useOrdersSocket";
 import { KanbanColumn } from "../components/KanbanColumn";
+import { LogoutButton } from "../../auth/components/LogoutButton";
 import type { Order, OrderStatus } from "../types/order.types";
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
@@ -77,10 +78,11 @@ export const CashierDashboardPage = () => {
           public/sounds/new-order.mp3 for this to play anything. */}
       <audio ref={audioRef} src="/sounds/new-order.mp3" preload="auto" />
 
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-brand-peach px-4 md:px-8 py-3">
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-brand-peach px-4 md:px-8 py-3 flex items-center justify-between">
         <span className="text-lg font-extrabold text-brand-charcoal tracking-tight">
           Cashier<span className="text-brand-orange">Dashboard</span>
         </span>
+        <LogoutButton />
       </header>
 
       <div className="p-4 md:p-8">

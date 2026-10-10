@@ -1,6 +1,7 @@
 import express from "express";
 import {
   login,
+  logout,
   register,
   createStaff,
   getProfile,
@@ -78,6 +79,18 @@ userRouter.post("/register", register);
  *         description: Invalid Email or Password
  */
 userRouter.post("/login", login);
+
+/**
+ * @openapi
+ * /api/users/logout:
+ *   post:
+ *     summary: Log out - clears the HTTP-only accessToken cookie (Public, idempotent)
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ */
+userRouter.post("/logout", logout);
 
 // 2️⃣ Protected Routes
 /**

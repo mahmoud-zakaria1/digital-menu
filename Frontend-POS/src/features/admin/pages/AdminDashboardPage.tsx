@@ -5,6 +5,7 @@ import { MealFormModal } from "../components/MealFormModal";
 import { CategoryFormModal } from "../components/CategoryFormModal";
 import { StaffFormModal } from "../components/StaffFormModal";
 import { AnalyticsCards } from "../components/AnalyticsCards";
+import { LogoutButton } from "../../auth/components/LogoutButton";
 import type { Meal, Category } from "../../menu/types/menu.types";
 
 type Tab = "meals" | "categories";
@@ -45,13 +46,16 @@ export const AdminDashboardPage = () => {
           Admin<span className="text-brand-orange">Dashboard</span>
         </span>
 
-        <button
-          type="button"
-          onClick={() => setIsStaffModalOpen(true)}
-          className="px-3 py-1.5 rounded-lg border border-brand-orange text-brand-orange hover:bg-brand-orange hover:text-white text-sm font-semibold transition cursor-pointer"
-        >
-          + New Staff
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsStaffModalOpen(true)}
+            className="px-3 py-1.5 rounded-lg border border-brand-orange text-brand-orange hover:bg-brand-orange hover:text-white text-sm font-semibold transition cursor-pointer"
+          >
+            + New Staff
+          </button>
+          <LogoutButton />
+        </div>
       </header>
 
       <div className="max-w-3xl mx-auto p-4 md:p-8">

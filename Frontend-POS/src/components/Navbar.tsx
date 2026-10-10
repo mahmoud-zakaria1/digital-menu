@@ -1,5 +1,6 @@
 import { useAppSelector } from "../app/hooks";
 import { selectCartTableId } from "../features/cart/cartSelectors";
+import { LogoutButton } from "../features/auth/components/LogoutButton";
 
 export const Navbar = () => {
   const tableId = useAppSelector(selectCartTableId);
@@ -11,11 +12,14 @@ export const Navbar = () => {
           Digital<span className="text-brand-orange">Menu</span>
         </span>
 
-        {tableId && (
-          <span className="text-xs font-semibold text-brand-orange bg-brand-peach px-3 py-1.5 rounded-full">
-            Dine-in
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {tableId && (
+            <span className="text-xs font-semibold text-brand-orange bg-brand-peach px-3 py-1.5 rounded-full">
+              Dine-in
+            </span>
+          )}
+          <LogoutButton />
+        </div>
       </div>
     </header>
   );

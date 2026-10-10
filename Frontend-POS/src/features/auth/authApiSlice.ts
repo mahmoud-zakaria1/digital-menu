@@ -30,6 +30,16 @@ export const authApiSlice = apiSlice.injectEndpoints({
       }),
     }),
 
+    // Logout Mutation - the auth cookie is httpOnly, so only the server
+    // can clear it (JS can't touch it). No tag invalidation here: the
+    // caller resets the whole API cache right after, which covers it.
+    logout: builder.mutation<void, void>({
+      query: () => ({
+        url: "/users/logout",
+        method: "POST",
+      }),
+    }),
+
     // Get Current User Profile
     // Backend wraps the user in { success, message, user }, so we unwrap
     // it here — every component that uses this hook should get the User
@@ -46,5 +56,9 @@ export const authApiSlice = apiSlice.injectEndpoints({
 });
 
 // 2️⃣ Export Auto-Generated Hooks for Components
-export const { useLoginMutation, useRegisterMutation, useGetProfileQuery } =
-  authApiSlice;
+export const {
+  useLoginMutation,
+  useRegisterMutation,
+  useLogoutMutation,
+  useGetProfileQuery,
+} = authApiSlice;

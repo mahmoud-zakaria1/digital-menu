@@ -9,6 +9,17 @@ import {
 } from "../validators/user.validator.js";
 import { assertUser, assertExists } from "../utils/assertions.js";
 
+// Single source of truth for the auth cookie's attributes. res.clearCookie
+// only removes a cookie if sameSite/secure/path match what it was set
+// with - so login and logout must share these, otherwise a change to one
+// (e.g. flipping sameSite for production) silently breaks the other and
+// logout stops actually logging anyone out.
+const ACCESS_TOKEN_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: (config.isProduction ? "none" : "lax") as "none" | "lax",
+  secure: config.isProduction,
+} as const;
+
 // 1️⃣ User Registration
 export const register = async function (
   req: Request,
@@ -114,10 +125,8 @@ export const login = async function (
 
     // Attach secure HTTP-only cookie
     res.cookie("accessToken", token, {
+      ...ACCESS_TOKEN_COOKIE_OPTIONS,
       maxAge: 1000 * 60 * 60 * 24,
-      httpOnly: true,
-      sameSite: config.isProduction ? "none" : "lax",
-      secure: config.isProduction,
     });
 
     return res.status(200).json({
@@ -136,7 +145,21 @@ export const login = async function (
   }
 };
 
-// 4️⃣ Get Current Authenticated User Profile
+// 4️⃣ Logout - clears the httpOnly auth cookie.
+// Deliberately NOT behind isVerifiedUser: it only clears the caller's own
+// cookie, and requiring a valid token to log out would mean someone with
+// an expired/invalid token can't clear it. Idempotent - calling it while
+// already logged out is harmless.
+export const logout = function (req: Request, res: Response) {
+  res.clearCookie("accessToken", ACCESS_TOKEN_COOKIE_OPTIONS);
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
+  });
+};
+
+// 5️⃣ Get Current Authenticated User Profile
 export const getProfile = async function (
   req: Request,
   res: Response,
