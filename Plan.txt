@@ -82,7 +82,9 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] POST Order -> server-side price calculation (prevents tampering)
             -> Save to DB -> emit "new_order" (populated payload) to all
             connected clients
-        [✓] GET Orders (all + by id)
+        [✓] GET Orders (all + by id); by-id is open to the order's owner
+            and staff (403 for anyone else) so customers can track
+            their own order
         [✓] GET /api/orders/stats (Admin only): total revenue (completed
             orders only), active order count (pending + preparing), top 5
             best-selling meals - MongoDB aggregation, declared BEFORE
@@ -241,6 +243,36 @@ SECURITY & BUG FIXES LOG
   Customer. Deliberately NOT "first registered user becomes Admin": on a
   freshly deployed public instance that would hand the whole system to
   whoever registers first.
+- [BACKEND / SECURITY] "new_order" was broadcast to EVERY connected
+  socket (io.emit) with a populated payload: customer name, email, phone
+  and delivery address. Harmless while only staff dashboards opened
+  sockets, but the moment customers connect for live tracking, any
+  customer would receive every other customer's order. It now goes to
+  staff_room only.
+- [BACKEND / BUG] A customer couldn't read their own order: GET
+  /api/orders/:id was Admin/Cashier only, so the tracking page had no way
+  to load its initial state. It is now open to the order's owner and
+  staff, and the ownership check runs BEFORE populate (while order.user
+  is still a bare id). Covered by three new integration tests (own
+  order -> 200, someone else's -> 403, staff -> 200).
+- [BACKEND / BUG] status_changed was emitted only to the per-order room,
+  so the Cashier board never heard about changes it didn't make itself
+  (a customer cancelling, another staff member advancing an order). It
+  is now sent to the order room AND staff_room via one chained .to(),
+  delivered once to anyone in both. The payment webhook still emits its
+  own order_status_changed - to be unified when Paymob is wired in.
+- [FULL-STACK / RELIABILITY] Missed events: Socket.IO doesn't replay what
+  a client missed while offline or still connecting, so a wifi blip - or
+  an order created between the board's first fetch and its socket
+  finishing the handshake - could silently drop an order from the
+  Cashier's board. Both live views now re-sync over REST on every
+  connect ("subscribe, then sync"); track_order gained an ack so the
+  tracking page re-fetches only once its room is actually joined, and
+  new_order is de-duplicated against a concurrent re-sync.
+- [FRONTEND / REFACTOR] The socket URL derivation and connection setup
+  now live in one createSocket() helper (src/api/socket.ts) instead of
+  being repeated per hook; order label helpers (type, meal name, short
+  id) are shared by the Cashier card and the tracking page.
 
 
 ========================================
@@ -317,9 +349,12 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
         /api/users/staff) - replaces manual role edits in Atlas
 
 --- Phase 5: Payments, Live Tracking & Polish (4 days) --- [CURRENT PHASE]
-[ ] Customer order-tracking page (/orders/:id/track): live screen that
-    listens only to that order's socket room - also replaces the inline
-    "Order Placed!" confirmation CheckoutPage currently shows
+[✓] Customer order-tracking page (/orders/:id/track): loads the order
+    over REST, stays current by listening only to that order's socket
+    room; status stepper, live/connecting indicator, cancel while
+    pending, and a short order id (#A1B2C3) the customer can quote to
+    staff - the same id now shows on the Cashier card. Replaces the old
+    inline "Order Placed!" screen: Checkout now redirects here
 [ ] Price reconciliation: after order creation, replace the locally
     computed cart total with the server-returned order total before
     proceeding to payment (never trust the client-side calc for the
@@ -349,9 +384,12 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 
 [✓] Connect frontend to backend APIs - auth, menu, orders, uploads,
     staff and stats done; payments still to be wired up in Phase 5
-[ ] Socket.io client reconnect logic + re-join tracked-order rooms on
-    reconnect (relevant to the Phase 5 tracking page; staff_room is
-    joined automatically by the server on every connect)
+[✓] Socket.io client reconnect + re-sync: socket.io-client reconnects
+    automatically; on EVERY connect the tracking page re-joins its
+    order room and re-fetches once the server acknowledges the join,
+    and the Cashier board re-fetches its list (staff_room is joined
+    server-side during the connection handler). Both exist because
+    Socket.IO never replays events missed while offline.
 
 
 ========================================
@@ -366,6 +404,11 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
   refresh token) as the stronger successor to the current sliding
   session, which can't revoke an individual session - only deleting or
   demoting the user takes effect immediately
+- Per-line price snapshot on orders (priceAtOrder): an order stores meal
+  refs + quantities + one server-calculated totalPrice, so a line's price
+  is only knowable from the CURRENT meal price. Customer-facing views
+  therefore show names, quantities and the order total only. A snapshot
+  would also make historical revenue reports exact if prices change.
 - Staff management list (view / deactivate / change role) - creation is
   done, but there is no GET /api/users endpoint or UI to see who has staff
   access
@@ -483,3 +526,14 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 - The first Admin is bootstrapped out-of-band (seed script), never
   through an HTTP path - any in-app way to mint the first Admin is a way
   for an attacker to do the same.
+- Real-time is "subscribe, then sync": events are a freshness
+  optimisation, never the source of truth. On every (re)connect the
+  client re-fetches over REST (the tracking page after the room-join
+  ack), because Socket.IO doesn't replay what was missed while offline.
+- Socket rooms are the access-control boundary: order_<id> rooms are
+  joined only after an owner/staff check, staff_room holds Admin/Cashier
+  sockets, and anything carrying personal data (new_order) is emitted to
+  staff_room - never io.emit.
+- A customer-facing order view never shows per-line prices (see the
+  price-snapshot Future Idea): names, quantities and the order's stored
+  total are the only figures guaranteed to be consistent.
