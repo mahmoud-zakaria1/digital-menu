@@ -8,7 +8,6 @@ import { clearCart, clearTable } from "../../cart/cartSlice";
 import { useCartLines } from "../../cart/useCartLines";
 import { useGetProfileQuery } from "../../auth/authApiSlice";
 import { useCreateOrderMutation } from "../ordersApiSlice";
-import type { Order } from "../types/order.types";
 
 type OrderType = "delivery" | "takeaway";
 
@@ -26,7 +25,6 @@ export const CheckoutPage = () => {
   const [orderType, setOrderType] = useState<OrderType>("delivery");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
 
   // Prefill phone from the logged-in user's profile once it loads, without
   // clobbering it if the customer edits it afterward. Deliberately NOT a
@@ -66,7 +64,10 @@ export const CheckoutPage = () => {
 
       dispatch(clearCart());
       dispatch(clearTable());
-      setPlacedOrder(order);
+      toast.success("Order placed!");
+      // Hand off to the live tracking page (replace: Back from there
+      // shouldn't land on a checkout for a cart that no longer exists).
+      navigate(`/orders/${order._id}/track`, { replace: true });
     } catch (err: unknown) {
       const errorData = err as { data?: { message?: string } };
       toast.error(
@@ -74,38 +75,6 @@ export const CheckoutPage = () => {
       );
     }
   };
-
-  // 1️⃣ Success state - inline for now. Phase 5 replaces this with the
-  // real /orders/:id/track live-tracking page.
-  if (placedOrder) {
-    return (
-      <div className="min-h-screen bg-brand-cream">
-        <Navbar />
-        <div className="max-w-md mx-auto p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-brand-orange/10 flex items-center justify-center mx-auto mb-4 text-3xl text-brand-orange">
-            ✓
-          </div>
-          <h1 className="text-2xl font-bold text-brand-charcoal mb-2">
-            Order Placed!
-          </h1>
-          <p className="text-brand-charcoal/60 text-sm mb-1">
-            Total: {placedOrder.totalPrice.toFixed(2)} EGP
-          </p>
-          <p className="text-brand-charcoal/60 text-sm mb-6">
-            We'll get started on it right away. Live order tracking is coming
-            soon.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate("/menu")}
-            className="px-6 py-2.5 bg-brand-orange hover:bg-brand-orange-dark text-white font-medium rounded-lg transition cursor-pointer"
-          >
-            Back to Menu
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-brand-cream">

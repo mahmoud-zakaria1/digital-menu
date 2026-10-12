@@ -46,6 +46,11 @@ interface OrderMutationResponse {
   data: Order;
 }
 
+interface GetOrderResponse {
+  success: boolean;
+  data: Order;
+}
+
 interface GetOrderStatsResponse {
   success: boolean;
   data: OrderStats;
@@ -83,6 +88,18 @@ export const ordersApiSlice = apiSlice.injectEndpoints({
               { type: "Order" as const, id: "LIST" },
             ]
           : [{ type: "Order" as const, id: "LIST" }],
+    }),
+
+    // One order - used by the customer's live tracking page. Tagged per
+    // order id, so cancelling it (which invalidates that tag) refreshes
+    // the page too.
+    getOrderById: builder.query<Order, string>({
+      query: (id) => ({
+        url: `/orders/${id}`,
+        method: "GET",
+      }),
+      transformResponse: (response: GetOrderResponse) => response.data,
+      providesTags: (_result, _error, id) => [{ type: "Order", id }],
     }),
 
     // Admin Dashboard analytics cards (revenue, active orders, best sellers)
@@ -128,6 +145,7 @@ export const ordersApiSlice = apiSlice.injectEndpoints({
 export const {
   useCreateOrderMutation,
   useGetOrdersQuery,
+  useGetOrderByIdQuery,
   useGetOrderStatsQuery,
   useUpdateOrderStatusMutation,
   useCancelOrderMutation,

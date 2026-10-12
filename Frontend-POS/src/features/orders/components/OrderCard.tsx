@@ -1,4 +1,9 @@
 import type { Order, OrderStatus } from "../types/order.types";
+import {
+  getMealName,
+  getOrderTypeLabel,
+  getShortOrderId,
+} from "../utils/orderLabels";
 
 interface OrderCardProps {
   order: Order;
@@ -12,26 +17,12 @@ const NEXT_STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
   preparing: "Mark Completed",
 };
 
-const getOrderTypeLabel = (order: Order): string => {
-  if (order.table) {
-    const tableNo =
-      typeof order.table === "string" ? undefined : order.table.tableNo;
-    return tableNo ? `Table ${tableNo}` : "Dine-in";
-  }
-  return order.address ? "Delivery" : "Takeaway";
-};
-
 // A populated reference (user/meal) can resolve to null if the document
 // it pointed to was deleted after the order was placed - never assume
 // it's always a full object just because it isn't a string id.
 const getCustomerName = (order: Order): string => {
   if (!order.user) return "Unknown customer";
   return typeof order.user === "string" ? "Customer" : order.user.name;
-};
-
-const getMealName = (meal: Order["meals"][number]["meal"]): string => {
-  if (!meal) return "Unavailable item";
-  return typeof meal === "string" ? "Unknown item" : meal.name;
 };
 
 export const OrderCard = ({
@@ -42,6 +33,12 @@ export const OrderCard = ({
 }: OrderCardProps) => {
   const nextLabel = NEXT_STATUS_LABEL[order.status];
   const customerName = getCustomerName(order);
+  const placedAt = order.createdAt
+    ? new Date(order.createdAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
 
   return (
     <div className="bg-white rounded-xl border border-brand-peach p-4 space-y-3">
@@ -49,14 +46,10 @@ export const OrderCard = ({
         <span className="text-xs font-semibold text-brand-orange bg-brand-peach px-2.5 py-1 rounded-full">
           {getOrderTypeLabel(order)}
         </span>
-        {order.createdAt && (
-          <span className="text-xs text-brand-charcoal/40">
-            {new Date(order.createdAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-        )}
+        <span className="text-xs text-brand-charcoal/40">
+          #{getShortOrderId(order)}
+          {placedAt && ` · ${placedAt}`}
+        </span>
       </div>
 
       <div>
