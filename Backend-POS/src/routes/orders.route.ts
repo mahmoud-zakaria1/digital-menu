@@ -157,7 +157,7 @@ orderRouter.get("/stats", isVerifiedUser, isAdmin, getOrderStats);
  * @openapi
  * /api/orders/{id}:
  *   get:
- *     summary: Get a single order by ID (Admin or Cashier)
+ *     summary: Get a single order by ID (the order's owner, or Admin/Cashier)
  *     tags: [Orders]
  *     security:
  *       - cookieAuth: []
@@ -174,11 +174,13 @@ orderRouter.get("/stats", isVerifiedUser, isAdmin, getOrderStats);
  *       401:
  *         description: Not authenticated
  *       403:
- *         description: Access denied - Admins or Cashiers only
+ *         description: Not the order's owner and not staff
  *       404:
  *         description: Order not found
  */
-orderRouter.get("/:id", isVerifiedUser, isAdminOrCashier, getOrderById);
+// Ownership/role is checked inside the controller (owner or staff), so
+// this route only needs authentication, not isAdminOrCashier.
+orderRouter.get("/:id", isVerifiedUser, getOrderById);
 
 /**
  * @openapi

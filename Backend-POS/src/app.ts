@@ -79,7 +79,7 @@ io.on("connection", (socket) => {
   }
 
   // Real-time order tracking listener
-  socket.on("track_order", async (orderId: string) => {
+  socket.on("track_order", async (orderId: string, ack?: () => void) => {
     try {
       const order = await Order.findById(orderId);
 
@@ -106,6 +106,12 @@ io.on("connection", (socket) => {
       // Join room dedicated to this order for targeted broadcasts
       socket.join(`order_${orderId}`);
       console.log(`Socket ${socket.id} joined room: order_${orderId}`);
+
+      // Acknowledge the join. The client uses this as its cue to re-sync
+      // the order over REST: anything that changed before the room was
+      // joined was never delivered to this socket (Socket.IO does not
+      // replay events), so "subscribe, then sync" closes that gap.
+      if (typeof ack === "function") ack();
     } catch (error) {
       socket.emit("track_order_error", "Invalid order id");
     }

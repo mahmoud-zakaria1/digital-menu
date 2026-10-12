@@ -126,7 +126,11 @@ export const createOrder = async (
       { path: "table", select: "tableNo" },
     ]);
 
-    io.emit("new_order", populatedOrder);
+    // staff_room only - NOT io.emit. This payload carries the customer's
+    // name, email, phone and delivery address; broadcasting it to every
+    // connected socket would hand each customer (who now open sockets to
+    // track their own order) the details of everyone else's orders.
+    io.to("staff_room").emit("new_order", populatedOrder);
 
     return res.status(201).json({
       success: true,
@@ -257,20 +261,38 @@ export const getOrderStats = async (
   }
 };
 
-// 4️⃣ Get Single Order By ID
+// 4️⃣ Get Single Order By ID (the order's owner, or staff)
+// Customers need this for the live tracking page; it used to be
+// Admin/Cashier only, so a customer had no way to load their own order.
 export const getOrderById = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const orderId = toObjectId(req.params.id);
-    const order = await Order.findById(orderId)
-      .populate("user", "name")
-      .populate("meals.meal", "name price")
-      .populate("table", "tableNo");
+    if (!assertUser(req.user, next)) return;
 
+    const orderId = toObjectId(req.params.id);
+    const order = await Order.findById(orderId);
     if (!assertExists(order, "Order", next)) return;
+
+    // Authorize BEFORE populating, while order.user is still a bare
+    // ObjectId (after populate it becomes a document, or null if the
+    // user was deleted).
+    const isOwner = order.user.toString() === req.user._id.toString();
+    const isStaff = req.user.role === "Admin" || req.user.role === "Cashier";
+
+    if (!isOwner && !isStaff) {
+      const error: any = new Error("You are not authorized to view this order");
+      error.statusCode = 403;
+      return next(error);
+    }
+
+    await order.populate([
+      { path: "user", select: "name" },
+      { path: "meals.meal", select: "name price" },
+      { path: "table", select: "tableNo" },
+    ]);
 
     return res.status(200).json({
       success: true,
@@ -318,8 +340,10 @@ export const updateOrder = async (
     order.status = validatedData.status;
     await order.save();
 
-    // Emit status change event strictly to the specific order tracking room
-    io.to(`order_${orderId}`).emit("status_changed", {
+    // Notify the customer tracking this order AND the staff dashboards.
+    // Chaining .to() targets the union of both rooms and delivers once to
+    // anyone who is in both.
+    io.to(`order_${orderId}`).to("staff_room").emit("status_changed", {
       orderId: order._id,
       status: order.status,
     });
@@ -386,8 +410,10 @@ export const cancelOrder = async (
     order.status = "cancelled";
     await order.save();
 
-    // Emit status change event to the specific order tracking room
-    io.to(`order_${orderId}`).emit("status_changed", {
+    // Same as updateOrder: the tracking customer AND the staff boards need
+    // to hear about it (e.g. a customer cancelling must update the
+    // Cashier's board live).
+    io.to(`order_${orderId}`).to("staff_room").emit("status_changed", {
       orderId: order._id,
       status: order.status,
     });

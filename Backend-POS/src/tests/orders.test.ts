@@ -134,4 +134,71 @@ describe("Orders API Integration Tests", () => {
     expect(updateRes.status).toBe(200);
     expect(updateRes.body.data.status).toBe("preparing");
   });
+
+  // 6️⃣ A customer must be able to read their own order (live tracking page)
+  it("should let a customer fetch their own order", async () => {
+    const orderRes = await request(app)
+      .post("/api/orders/")
+      .set("Cookie", customerCookie)
+      .send({
+        meals: [{ meal: mealId, quantity: 1 }],
+        phone: "+201234567890",
+      });
+    const orderId = orderRes.body.data._id;
+
+    const res = await request(app)
+      .get(`/api/orders/${orderId}`)
+      .set("Cookie", customerCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data._id).toBe(orderId);
+  });
+
+  // 7️⃣ ...but never someone else's
+  it("should forbid a customer from fetching someone else's order", async () => {
+    const orderRes = await request(app)
+      .post("/api/orders/")
+      .set("Cookie", customerCookie)
+      .send({
+        meals: [{ meal: mealId, quantity: 1 }],
+        phone: "+201234567890",
+      });
+    const orderId = orderRes.body.data._id;
+
+    await request(app).post("/api/users/register").send({
+      name: "Other Customer",
+      email: "other@test.com",
+      phone: "+201234567892",
+      password: "password123",
+    });
+    const otherLogin = await request(app).post("/api/users/login").send({
+      email: "other@test.com",
+      password: "password123",
+    });
+    const otherCookie = otherLogin.headers["set-cookie"]?.[0] ?? "";
+
+    const res = await request(app)
+      .get(`/api/orders/${orderId}`)
+      .set("Cookie", otherCookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  // 8️⃣ Staff can still read any order
+  it("should let staff fetch any order", async () => {
+    const orderRes = await request(app)
+      .post("/api/orders/")
+      .set("Cookie", customerCookie)
+      .send({
+        meals: [{ meal: mealId, quantity: 1 }],
+        phone: "+201234567890",
+      });
+    const orderId = orderRes.body.data._id;
+
+    const res = await request(app)
+      .get(`/api/orders/${orderId}`)
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+  });
 });
