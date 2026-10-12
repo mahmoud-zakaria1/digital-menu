@@ -1,24 +1,16 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 import User from "../models/user.schema.js";
-import config from "../config/config.js";
 import {
   registerValidate,
   createStaffValidate,
   loginValidate,
 } from "../validators/user.validator.js";
 import { assertUser, assertExists } from "../utils/assertions.js";
-
-// Single source of truth for the auth cookie's attributes. res.clearCookie
-// only removes a cookie if sameSite/secure/path match what it was set
-// with - so login and logout must share these, otherwise a change to one
-// (e.g. flipping sameSite for production) silently breaks the other and
-// logout stops actually logging anyone out.
-const ACCESS_TOKEN_COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: (config.isProduction ? "none" : "lax") as "none" | "lax",
-  secure: config.isProduction,
-} as const;
+import {
+  ACCESS_TOKEN_COOKIE_NAME,
+  ACCESS_TOKEN_COOKIE_OPTIONS,
+  issueSessionCookie,
+} from "../utils/session.js";
 
 // 1️⃣ User Registration
 export const register = async function (
@@ -59,7 +51,8 @@ export const register = async function (
 // 2️⃣ Create Staff Account (Admin only - gated at the route level)
 // The sanctioned way to create Admin/Cashier accounts. The public
 // register endpoint can never assign these roles; this one can, but
-// only for an authenticated Admin.
+// only for an authenticated Admin. (The very FIRST Admin can't come from
+// here - it needs an existing Admin - see scripts/seedAdmin.ts.)
 export const createStaff = async function (
   req: Request,
   res: Response,
@@ -96,7 +89,7 @@ export const createStaff = async function (
   }
 };
 
-// 3️⃣ User Login & JWT Cookie Issuance
+// 3️⃣ User Login & Session Cookie Issuance
 export const login = async function (
   req: Request,
   res: Response,
@@ -116,18 +109,9 @@ export const login = async function (
         .json({ success: false, message: "Invalid Email or Password" });
     }
 
-    // Generate JWT access token
-    const token = jwt.sign(
-      { _id: user._id, phone: user.phone, email: user.email, role: user.role },
-      config.jwtSecret,
-      { expiresIn: "1d" },
-    );
-
-    // Attach secure HTTP-only cookie
-    res.cookie("accessToken", token, {
-      ...ACCESS_TOKEN_COOKIE_OPTIONS,
-      maxAge: 1000 * 60 * 60 * 24,
-    });
+    // Signs the token and sets the httpOnly cookie. A fresh login starts a
+    // new session: its absolute-cap clock (authTime) starts now.
+    issueSessionCookie(res, user);
 
     return res.status(200).json({
       success: true,
@@ -151,7 +135,7 @@ export const login = async function (
 // an expired/invalid token can't clear it. Idempotent - calling it while
 // already logged out is harmless.
 export const logout = function (req: Request, res: Response) {
-  res.clearCookie("accessToken", ACCESS_TOKEN_COOKIE_OPTIONS);
+  res.clearCookie(ACCESS_TOKEN_COOKIE_NAME, ACCESS_TOKEN_COOKIE_OPTIONS);
 
   return res.status(200).json({
     success: true,

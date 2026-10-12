@@ -3,6 +3,10 @@ import { Response, Request, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/user.schema.js";
 import { IJwtPayload } from "../types/jwt.types.js";
+import {
+  ACCESS_TOKEN_COOKIE_NAME,
+  renewSessionIfNeeded,
+} from "../utils/session.js";
 
 // 1️⃣ Authentication Middleware
 export const isVerifiedUser = async (
@@ -11,7 +15,7 @@ export const isVerifiedUser = async (
   next: NextFunction,
 ) => {
   try {
-    const token = req.cookies?.accessToken;
+    const token = req.cookies?.[ACCESS_TOKEN_COOKIE_NAME];
 
     if (!token) {
       const error: any = new Error("Please provide token! Access Denied.");
@@ -21,6 +25,9 @@ export const isVerifiedUser = async (
 
     const decoded = jwt.verify(token, config.jwtSecret) as IJwtPayload;
 
+    // The user is re-read from the DB on every request, so deleting or
+    // demoting someone takes effect immediately regardless of how long
+    // their token has left.
     const user = await User.findById(decoded._id).select("-password");
 
     if (!user) {
@@ -30,6 +37,12 @@ export const isVerifiedUser = async (
     }
 
     req.user = user;
+
+    // Sliding session: an active user's cookie is renewed once it's a day
+    // old (up to the absolute cap) - see utils/session.ts. Runs only after
+    // the token and the user have both checked out.
+    renewSessionIfNeeded(res, decoded, user);
+
     next();
   } catch (error: any) {
     error.message = "Invalid or Expired Token!";
