@@ -38,6 +38,13 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
             restricted to Admin|Cashier
         [✓] Logout (POST /api/users/logout) - clears the httpOnly cookie;
             login and logout share one cookie-options constant
+        [✓] Sliding session with a hard cap: an authenticated request
+            renews the cookie once the token is a day old (7-day idle
+            window, 30-day absolute cap from the original login) -
+            see Fixes Log; all numbers live in utils/session.ts
+        [✓] First-Admin bootstrap: `npm run seed:admin` (idempotent),
+            because neither register nor the staff endpoint can create
+            the first Admin
 
     - Category API's (NOT in original plan - added for filtering)
         [✓] GET (public), POST/PUT/DELETE (Admin only)
@@ -103,13 +110,17 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
       field rejection, state machine transitions
     - Admin test fixture now seeded directly via User.create() (see Fixes
       Log - public register no longer accepts a client-supplied role)
+    - Session renewal rule (utils/session.ts) is unit-tested: no renewal
+      while fresh, original login time preserved, absolute cap respected,
+      legacy tokens without authTime handled
     - NOT yet covered by tests: stats aggregation, staff creation, logout,
       meal image upload (candidates for a later round)
 
 [✓] README.md
     - Architecture decisions, setup instructions, API overview, tech stack rationale
     - TODO: API table + env var list need the newer endpoints
-      (staff, logout, stats, uploads) and CLOUDINARY_* variables
+      (staff, logout, stats, uploads), CLOUDINARY_* variables, and a
+      "First Admin" setup step (npm run seed:admin + ADMIN_* variables)
 
 [✓] Deploy (Backend)
     - CHANGED FROM PLAN: Railway first (quick deploy for job applications),
@@ -208,6 +219,28 @@ SECURITY & BUG FIXES LOG
   whole RTK Query cache so an Admin's orders/revenue don't linger in memory
   for the next person on the same device. Added to the customer Navbar and
   to the Cashier and Admin headers.
+- [BACKEND / UX + SECURITY] Sessions ended abruptly: the JWT lived a flat
+  1 day from login, so a Cashier who opened the dashboard at the start of
+  a shift would start getting 401s on status updates later (the socket
+  only checks the token at handshake, so the board still LOOKED alive).
+  Replaced with a sliding session: any authenticated request renews the
+  cookie once the token is a day old (7-day idle window), capped at 30
+  days from the original login via an `authTime` claim carried through
+  every renewal. Active users stay in, abandoned sessions still expire,
+  and a stolen cookie can't be kept alive forever. The renewal rule lives
+  in utils/session.ts and is unit-tested. Deleting/demoting a user still
+  takes effect at once because the middleware re-reads the user from the
+  DB on every request.
+- [BACKEND / FEATURE] First-Admin bootstrap. Public register can't assign
+  roles and POST /api/users/staff needs an existing Admin, so the very
+  first Admin had no way to exist except a manual DB edit. `npm run
+  seed:admin` creates it from ADMIN_* env vars: validated with the same
+  Zod schema as the staff endpoint, password hashed through the normal
+  save() path, idempotent (no-op if any Admin exists), and it refuses
+  rather than silently promoting an email already registered as a
+  Customer. Deliberately NOT "first registered user becomes Admin": on a
+  freshly deployed public instance that would hand the whole system to
+  whoever registers first.
 
 
 ========================================
@@ -329,6 +362,10 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
   create tables or generate a printable QR per table (tables exist only via
   Swagger/Postman). Strong candidate right after Phase 5 - the QR ordering
   story isn't demo-able end to end without it.
+- Refresh-token rotation (short-lived access token + DB-stored, revocable
+  refresh token) as the stronger successor to the current sliding
+  session, which can't revoke an individual session - only deleting or
+  demoting the user takes effect immediately
 - Staff management list (view / deactivate / change role) - creation is
   done, but there is no GET /api/users endpoint or UI to see who has staff
   access
@@ -436,3 +473,13 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 - Logout resets the entire RTK Query cache (apiSlice.util.resetApiState)
   so one user's cached data (an Admin's orders, revenue) never outlives
   their session on a shared device.
+- Session lifetime is a sliding window with a hard ceiling (7-day idle
+  window, renewed at most once a day, 30-day absolute cap from the
+  original login). The three numbers and the ONLY place that sets the
+  auth cookie live together in utils/session.ts, so login, renewal and
+  logout can't drift apart. Trade-off: individual sessions can't be
+  revoked (only deleting/demoting the user kills them) - a refresh-token
+  table would fix that, see Future Ideas.
+- The first Admin is bootstrapped out-of-band (seed script), never
+  through an HTTP path - any in-app way to mint the first Admin is a way
+  for an attacker to do the same.
