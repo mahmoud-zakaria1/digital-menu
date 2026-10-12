@@ -8,7 +8,8 @@
     "dev": "nodemon --exec tsx src/server.ts",
     "build": "tsc",
     "start": "npx tsx src/server.ts",
-    "test": "cross-env NODE_ENV=test node --experimental-vm-modules ./node_modules/jest/bin/jest.js --forceExit --detectOpenHandles"
+    "test": "cross-env NODE_ENV=test node --experimental-vm-modules ./node_modules/jest/bin/jest.js --forceExit --detectOpenHandles",
+    "seed:admin": "tsx src/scripts/seedAdmin.ts"
   },
   "keywords": [],
   "author": "",
