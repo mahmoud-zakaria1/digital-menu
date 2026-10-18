@@ -2,6 +2,8 @@ import express, { NextFunction, Request, Response } from "express";
 import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import config from "./config/config.js";
 import globalErrorHandling from "./middlewares/globalErrorHandler.js";
 import userRouter from "./routes/users.route.js";
@@ -29,11 +31,39 @@ const io = new Server(httpServer, {
 });
 
 // 3️⃣ Global Middlewares
+// Behind Railway's reverse proxy every request would otherwise appear to
+// come from the proxy's own IP, so the rate limiter below would count the
+// whole world as ONE client. Trusting exactly one proxy hop makes
+// req.ip the real client address.
+app.set("trust proxy", 1);
+// Security headers. The CSP is switched off on purpose: this is a JSON API
+// (a CSP only protects HTML documents) and Swagger UI's inline scripts
+// would be blocked by helmet's default policy.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: config.frontendUrl, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// 4️⃣ Root Route (Health Check / Welcome Endpoint)
+// 4️⃣ Brute-force protection for the public auth endpoints.
+// Login and register share one budget per IP. It is only enforced in
+// production: in development and in the test suite the same machine logs
+// in constantly (every integration test does), and a limiter there would
+// just lock the developer out.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many attempts, please try again later.",
+  },
+  skip: () => !config.isProduction,
+});
+app.use("/api/users/login", authLimiter);
+app.use("/api/users/register", authLimiter);
+
+// 5️⃣ Root Route (Health Check / Welcome Endpoint)
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
@@ -42,7 +72,7 @@ app.get("/", (req: Request, res: Response) => {
   });
 });
 
-// 5️⃣ API Routes Setup
+// 6️⃣ API Routes Setup
 app.use("/api/users", userRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/meals", mealRouter);
@@ -52,20 +82,20 @@ app.use("/api/payments", paymentRouter);
 app.use("/api/uploads", uploadRouter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// 6️⃣ Catch-all 404 Handler for Unmatched Routes
+// 7️⃣ Catch-all 404 Handler for Unmatched Routes
 app.use((req: Request, res: Response, next: NextFunction) => {
   const error: any = new Error(`Route ${req.originalUrl} not found`);
   error.statusCode = 404;
   next(error);
 });
 
-// 7️⃣ Global Error Handler Middleware
+// 8️⃣ Global Error Handler Middleware
 app.use(globalErrorHandling);
 
-// 8️⃣ Socket.IO Authentication Middleware
+// 9️⃣ Socket.IO Authentication Middleware
 io.use(socketAuthMiddleware);
 
-// 9️⃣ Socket.IO Connection & Real-time Events Handling
+// 🔟 Socket.IO Connection & Real-time Events Handling
 io.on("connection", (socket) => {
   console.log(
     `Socket connected: ${socket.id} - User: ${socket.data.user?.name}`,

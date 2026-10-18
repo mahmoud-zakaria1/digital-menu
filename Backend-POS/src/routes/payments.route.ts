@@ -12,7 +12,8 @@ const paymentRouter = Router();
  * @openapi
  * /api/payments/create:
  *   post:
- *     summary: Create Paymob payment intention and internal payment record
+ *     summary: Start an online payment attempt for one of your own online orders - creates a Paymob intention and returns the hosted checkout URL
+ *     description: Each call is a fresh attempt, so a failed or abandoned payment can be retried. The customer is redirected back to /orders/{id}/track afterwards; that redirect is never trusted - only the signed webhook marks an order paid.
  *     tags: [Payments]
  *     security:
  *       - cookieAuth: []
@@ -30,9 +31,9 @@ const paymentRouter = Router();
  *                 example: 60d5ecb8b5c9c22b4c8e4111
  *     responses:
  *       201:
- *         description: Payment intention created successfully
+ *         description: Payment attempt created - data.checkoutUrl is where to send the customer
  *       400:
- *         description: Cannot pay for cancelled/completed order or order already paid
+ *         description: Order isn't an online order, is cancelled/completed, or is already paid
  *       401:
  *         description: Not authenticated
  *       403:
@@ -41,6 +42,8 @@ const paymentRouter = Router();
  *         description: Order not found
  *       502:
  *         description: Failed to communicate with Paymob API
+ *       503:
+ *         description: Online payment isn't configured (missing PAYMOB_PUBLIC_KEY)
  */
 paymentRouter.post("/create", isVerifiedUser, createPayment);
 
@@ -50,6 +53,7 @@ paymentRouter.post("/create", isVerifiedUser, createPayment);
  * /api/payments/webhook:
  *   post:
  *     summary: Paymob real-time webhook callback listener
+ *     description: Verifies the HMAC, locates the payment by Paymob's signed order id (never by merchant_order_id), checks the signed amount against what was recorded, then applies the result idempotently.
  *     tags: [Payments]
  *     parameters:
  *       - in: query
@@ -70,7 +74,9 @@ paymentRouter.post("/create", isVerifiedUser, createPayment);
  *                 description: Paymob transaction payload object
  *     responses:
  *       200:
- *         description: Webhook acknowledged successfully
+ *         description: Webhook acknowledged (including already-processed and unknown-payment callbacks)
+ *       400:
+ *         description: Malformed payload, or the signed amount/currency doesn't match the payment
  *       401:
  *         description: Invalid HMAC signature
  */

@@ -6,6 +6,7 @@ export interface IPaymentFields {
   order: Types.ObjectId;
   amount: number;
   currency: string;
+  paymobOrderId: string;
   paymobIntentionId?: string;
   paymobTransactionId?: string;
   status: PaymentStatus;

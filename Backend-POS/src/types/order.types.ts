@@ -5,6 +5,9 @@ export interface IOrderMealItem {
   quantity: number;
 }
 
+export type PaymentMethod = "cash" | "online";
+export type OrderPaymentStatus = "pending" | "paid" | "failed";
+
 export interface IOrderFields {
   user: Types.ObjectId;
   meals: IOrderMealItem[];
@@ -12,6 +15,8 @@ export interface IOrderFields {
   address?: string;
   phone: string;
   table?: Types.ObjectId;
+  paymentMethod: PaymentMethod;
+  paymentStatus: OrderPaymentStatus;
   status: "pending" | "preparing" | "completed" | "cancelled";
 }
 
