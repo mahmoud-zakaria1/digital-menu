@@ -13,16 +13,31 @@ import { toObjectId } from "../utils/toObjectId.js";
 import { io } from "../app.js";
 import { assertExists, assertUser } from "../utils/assertions.js";
 import Payment from "../models/payment.schema.js";
+import { publishOrderToStaff, releaseTable } from "../utils/orderEvents.js";
 
 type CreateOrderInput = z.infer<typeof createOrderValidate>;
+
+// Staff must never see an online order that hasn't been paid yet - it isn't
+// "real" to the restaurant until the Paymob webhook confirms it (see
+// utils/orderEvents.ts). `$ne: "online"` (rather than `: "cash"`) is
+// deliberate: orders created before paymentMethod existed have no such
+// field and must stay visible.
+//
+// Typed as Record<string, any> (like every other dynamic filter in this
+// codebase): without an annotation TypeScript widens "online" / "paid" to
+// plain `string`, which Mongoose's strictly-typed filter then rejects
+// because Order.paymentMethod is the union "cash" | "online".
+const staffVisibleFilter = (): Record<string, any> => ({
+  $or: [{ paymentMethod: { $ne: "online" } }, { paymentStatus: "paid" }],
+});
 
 // Helper to map validated input and server-calculated price into an Order document
 const mapToOrderDocument = (
   input: CreateOrderInput,
   userId: string,
   totalPrice: number,
-): Omit<IOrderFields, "status"> => {
-  const orderDoc: Omit<IOrderFields, "status"> = {
+): Omit<IOrderFields, "status" | "paymentStatus"> => {
+  const orderDoc: Omit<IOrderFields, "status" | "paymentStatus"> = {
     user: toObjectId(userId),
     meals: input.meals.map((item) => ({
       meal: toObjectId(item.meal),
@@ -30,6 +45,7 @@ const mapToOrderDocument = (
     })),
     totalPrice,
     phone: input.phone,
+    paymentMethod: input.paymentMethod,
   };
 
   if (input.address) {
@@ -59,10 +75,8 @@ export const createOrder = async (
 
     // If the order came from a table's QR code, make sure that table
     // actually exists before creating the order around it
-    let tableId: ReturnType<typeof toObjectId> | undefined;
     if (validatedData.table) {
-      tableId = toObjectId(validatedData.table);
-      const tableExists = await Table.findById(tableId);
+      const tableExists = await Table.findById(toObjectId(validatedData.table));
       if (!tableExists) {
         const error: any = new Error("Table does not exist");
         error.statusCode = 400;
@@ -70,8 +84,23 @@ export const createOrder = async (
       }
     }
 
+    // Merge duplicate lines: the same meal sent twice becomes one line with
+    // the summed quantity. Without this, the "every id was found" check
+    // below would wrongly report a meal as missing.
+    const mergedQuantities = new Map<string, number>();
+    for (const item of validatedData.meals) {
+      mergedQuantities.set(
+        item.meal,
+        (mergedQuantities.get(item.meal) ?? 0) + item.quantity,
+      );
+    }
+    const mealIds = [...mergedQuantities.keys()];
+    const mergedMeals = [...mergedQuantities].map(([meal, quantity]) => ({
+      meal,
+      quantity,
+    }));
+
     // Fetch all requested meals to ensure they exist and retrieve accurate prices
-    const mealIds = validatedData.meals.map((m) => m.meal);
     const mealsFromDb = await Meal.find({ _id: { $in: mealIds } });
 
     if (mealsFromDb.length !== mealIds.length) {
@@ -80,57 +109,42 @@ export const createOrder = async (
       return next(error);
     }
 
-    // Map DB meals for O(1) instant lookup
-    const mealsMap = new Map(mealsFromDb.map((m) => [m._id.toString(), m]));
+    // A meal the Admin switched off must not be orderable, whatever the
+    // client's (possibly stale) menu still shows.
+    const unavailableMeals = mealsFromDb.filter((meal) => !meal.isAvailable);
+    if (unavailableMeals.length > 0) {
+      const error: any = new Error(
+        `Not available right now: ${unavailableMeals
+          .map((meal) => meal.name)
+          .join(", ")}`,
+      );
+      error.statusCode = 400;
+      return next(error);
+    }
 
     // Calculate total price on the server side
     let totalPrice = 0;
-    for (const item of validatedData.meals) {
-      const mealDoc = mealsMap.get(item.meal);
-
-      if (!mealDoc) {
-        throw Object.assign(new Error(`Meal with id ${item.meal} not found`), {
-          statusCode: 400,
-        });
-      }
-
-      totalPrice += mealDoc.price * item.quantity;
+    for (const mealDoc of mealsFromDb) {
+      totalPrice +=
+        mealDoc.price * (mergedQuantities.get(mealDoc._id.toString()) ?? 0);
     }
 
     // Map order fields and persist to database
     const orderData = mapToOrderDocument(
-      validatedData,
+      { ...validatedData, meals: mergedMeals },
       userId.toString(),
       totalPrice,
     );
 
     const newOrder = await Order.create(orderData);
 
-    // Keep the table's currentOrder in sync automatically, instead of
-    // relying on staff to link it manually via PUT /api/tables/:id
-    if (tableId) {
-      await Table.findByIdAndUpdate(tableId, {
-        currentOrder: newOrder._id,
-        status: "Occupied",
-      });
+    // Cash orders are real the moment they exist, so they go live now.
+    // Online orders are NOT published here - the Paymob webhook does that
+    // once the payment is confirmed, so an abandoned checkout never rings
+    // the Cashier's bell or occupies a table.
+    if (newOrder.paymentMethod === "cash") {
+      await publishOrderToStaff(newOrder);
     }
-
-    // Populate before broadcasting - dashboards listening for "new_order"
-    // need meal names/prices, the customer's name, and the table number
-    // immediately, the same shape getAllOrders already returns. Without
-    // this, a live-arriving order would render with blank meal names
-    // until the next full refetch.
-    const populatedOrder = await newOrder.populate([
-      { path: "user", select: "name email" },
-      { path: "meals.meal", select: "name price" },
-      { path: "table", select: "tableNo" },
-    ]);
-
-    // staff_room only - NOT io.emit. This payload carries the customer's
-    // name, email, phone and delivery address; broadcasting it to every
-    // connected socket would hand each customer (who now open sockets to
-    // track their own order) the details of everyone else's orders.
-    io.to("staff_room").emit("new_order", populatedOrder);
 
     return res.status(201).json({
       success: true,
@@ -160,6 +174,10 @@ export const getAllOrders = async (
 
     if (req.user.role === "Customer") {
       queryFilter.user = req.user._id;
+    } else {
+      // Staff only see orders that are real to the restaurant (cash, or
+      // online + paid), never an online order still waiting on its payment.
+      Object.assign(queryFilter, staffVisibleFilter());
     }
 
     if (status) {
@@ -205,7 +223,9 @@ export const getAllOrders = async (
 // 3️⃣ Get Order Stats (Admin-only analytics for the dashboard)
 // Revenue counts "completed" orders only - money for a still-pending or
 // cancelled order hasn't actually been earned yet. Active orders covers
-// anything currently in the pending/preparing pipeline.
+// anything currently in the pending/preparing pipeline. Unpaid online
+// orders are excluded from the active count and from best sellers: they
+// aren't real orders yet.
 export const getOrderStats = async (
   req: Request,
   res: Response,
@@ -217,8 +237,12 @@ export const getOrderStats = async (
         { $match: { status: "completed" } },
         { $group: { _id: null, totalRevenue: { $sum: "$totalPrice" } } },
       ]),
-      Order.countDocuments({ status: { $in: ["pending", "preparing"] } }),
+      Order.countDocuments({
+        status: { $in: ["pending", "preparing"] },
+        ...staffVisibleFilter(),
+      }),
       Order.aggregate([
+        { $match: { status: { $ne: "cancelled" }, ...staffVisibleFilter() } },
         { $unwind: "$meals" },
         {
           $group: {
@@ -325,6 +349,17 @@ export const updateOrder = async (
 
     if (!assertExists(order, "Order", next)) return;
 
+    // An online order only enters the kitchen pipeline through the payment
+    // webhook. Staff can't see unpaid ones on the board, but the endpoint
+    // must refuse them too - hiding something in the UI is not a guard.
+    if (order.paymentMethod === "online" && order.paymentStatus !== "paid") {
+      const error: any = new Error(
+        "This online order hasn't been paid yet, so it can't be processed",
+      );
+      error.statusCode = 400;
+      return next(error);
+    }
+
     // Validate that status transition is allowed by the State Machine
     const allowedNextStatuses = ALLOWED_TRANSITION[order.status] || [];
 
@@ -339,6 +374,11 @@ export const updateOrder = async (
     // Save updated status
     order.status = validatedData.status;
     await order.save();
+
+    // A finished order frees its table
+    if (order.status === "completed") {
+      await releaseTable(order);
+    }
 
     // Notify the customer tracking this order AND the staff dashboards.
     // Chaining .to() targets the union of both rooms and delivers once to
@@ -395,9 +435,9 @@ export const cancelOrder = async (
     }
 
     const existingPayment = await Payment.findOne({
-      order: orderId,
+      order: orderId.toString(),
       status: "paid",
-    });
+    } as Record<string, any>);
     if (existingPayment) {
       const error: any = new Error(
         "Cannot cancel an order that has already been paid",
@@ -409,6 +449,10 @@ export const cancelOrder = async (
     // Update status to cancelled
     order.status = "cancelled";
     await order.save();
+
+    // Free the table if this order was holding one (a no-op for an unpaid
+    // online order, which never occupied it)
+    await releaseTable(order);
 
     // Same as updateOrder: the tracking customer AND the staff boards need
     // to hear about it (e.g. a customer cancelling must update the
@@ -439,6 +483,9 @@ export const deleteOrder = async (
     const deletedOrder = await Order.findByIdAndDelete(orderId);
 
     if (!assertExists(deletedOrder, "Order", next)) return;
+
+    // Don't leave a table pointing at an order that no longer exists
+    await releaseTable(deletedOrder);
 
     return res.status(200).json({
       success: true,
