@@ -14,6 +14,20 @@ const orderSchema = new Schema<IOrder>(
     address: { type: String },
     phone: { type: String, required: true },
     table: { type: Schema.Types.ObjectId, ref: "Table" },
+    // 1️⃣ How the customer chose to pay. Defaults to "cash" so orders that
+    // were created before online payments existed keep behaving as cash.
+    paymentMethod: {
+      type: String,
+      enum: ["cash", "online"],
+      default: "cash",
+    },
+    // 2️⃣ Only ever changed by the HMAC-verified Paymob webhook - never by
+    // anything the client sends.
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed"],
+      default: "pending",
+    },
     status: {
       type: String,
       enum: ["pending", "preparing", "completed", "cancelled"],

@@ -1,24 +1,40 @@
-import mongoose, { Schema, Model } from "mongoose";
-import { IPayment } from "../types/payment.types.js";
+import mongoose, { Schema } from "mongoose";
+import { IOrder } from "../types/order.types.js";
 
-const paymentSchema = new Schema<IPayment>(
+const orderSchema = new Schema<IOrder>(
   {
-    order: { type: Schema.Types.ObjectId, ref: "Order", required: true },
-    amount: { type: Number, required: true, min: 0 },
-    currency: { type: String, default: "EGP" },
-    paymobIntentionId: { type: String },
-    paymobTransactionId: { type: String },
-    status: {
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    meals: [
+      {
+        meal: { type: Schema.Types.ObjectId, ref: "Meal", required: true },
+        quantity: { type: Number, required: true, default: 1 },
+      },
+    ],
+    totalPrice: { type: Number, required: true },
+    address: { type: String },
+    phone: { type: String, required: true },
+    table: { type: Schema.Types.ObjectId, ref: "Table" },
+    // 1️⃣ How the customer chose to pay. Defaults to "cash" so orders that
+    // were created before online payments existed keep behaving as cash.
+    paymentMethod: {
+      type: String,
+      enum: ["cash", "online"],
+      default: "cash",
+    },
+    // 2️⃣ Only ever changed by the HMAC-verified Paymob webhook - never by
+    // anything the client sends.
+    paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed"],
+      default: "pending",
+    },
+    status: {
+      type: String,
+      enum: ["pending", "preparing", "completed", "cancelled"],
       default: "pending",
     },
   },
   { timestamps: true },
 );
 
-const Payment: Model<IPayment> = mongoose.model<IPayment>(
-  "Payment",
-  paymentSchema,
-);
-export default Payment;
+export default mongoose.model<IOrder>("Order", orderSchema);

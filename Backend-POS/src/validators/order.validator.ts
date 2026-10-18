@@ -18,6 +18,10 @@ export const createOrderValidate = z
     // Optional: set when the order originates from a table's QR code
     // (frontend reads ?table=<id> from the URL and sends it here).
     table: z.string().optional(),
+    // How the customer wants to pay. This is only a CHOICE - whether an
+    // online order is actually paid is decided by the Paymob webhook, never
+    // by the client (paymentStatus is deliberately not accepted here).
+    paymentMethod: z.enum(["cash", "online"]).default("cash"),
   })
   .strict();
 
