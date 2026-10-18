@@ -46,6 +46,12 @@ const mapToMealUpdateDocument = (
   return mealDoc;
 };
 
+// Escapes every regex metacharacter so user input is matched as plain text.
+// The search box feeds a PUBLIC endpoint straight into $regex - unescaped, a
+// crafted pattern (catastrophic backtracking, ReDoS) could pin the database.
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // 1️⃣ Create New Meal
 export const createMeal = async (
   req: Request,
@@ -104,7 +110,8 @@ export const getAllMeals = async (
     }
 
     if (search) {
-      filter.name = { $regex: search, $options: "i" };
+      // Case-insensitive, but matched literally (see escapeRegex)
+      filter.name = { $regex: escapeRegex(search), $options: "i" };
     }
 
     const skip = (page - 1) * limit;
