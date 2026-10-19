@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Navbar } from "../../../components/Navbar";
@@ -5,6 +6,7 @@ import {
   useGetOrderByIdQuery,
   useCancelOrderMutation,
 } from "../ordersApiSlice";
+import { useCreatePaymentMutation } from "../paymentsApiSlice";
 import { useOrderTracking } from "../useOrderTracking";
 import { OrderStatusStepper } from "../components/OrderStatusStepper";
 import {
@@ -33,6 +35,19 @@ const STATUS_COPY: Record<OrderStatus, { title: string; subtitle: string }> = {
   },
 };
 
+// An online order that hasn't been paid yet is NOT waiting on the kitchen -
+// it is waiting on the customer's payment, so it gets its own wording.
+const PAYMENT_COPY = {
+  title: "Complete your payment",
+  subtitle: "Your order is sent to the kitchen once the payment is confirmed.",
+};
+
+// How often to re-check an unpaid online order while the page is open.
+// Only a safety net: the webhook normally arrives within seconds and the
+// socket delivers it instantly, but the socket can drop and a missed event
+// is never replayed.
+const PAYMENT_POLL_INTERVAL_MS = 5000;
+
 export const OrderTrackingPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,15 +56,39 @@ export const OrderTrackingPage = () => {
     data: order,
     isLoading,
     isError,
+    refetch,
   } = useGetOrderByIdQuery(id ?? "", { skip: !id });
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
+  const [createPayment, { isLoading: isRetrying }] = useCreatePaymentMutation();
 
-  // Only listen while there's still something to hear about. Before the
+  // 1️⃣ Only listen while there's still something to hear about. Before the
   // order has loaded we connect optimistically; once it's completed or
   // cancelled the socket is closed.
   const isActive =
     !order || (order.status !== "completed" && order.status !== "cancelled");
   const { isLive } = useOrderTracking(isActive ? id : undefined);
+
+  // 2️⃣ Payment states of an ONLINE order that is still pending. Everything
+  // shown here comes from the HMAC-verified webhook (via REST/socket) -
+  // the query params Paymob appends to the redirect are never trusted.
+  const needsPayment =
+    order?.paymentMethod === "online" &&
+    order.paymentStatus !== "paid" &&
+    order.status === "pending";
+  const isAwaitingPayment = needsPayment && order?.paymentStatus === "pending";
+  const paymentFailed = needsPayment && order?.paymentStatus === "failed";
+
+  // 3️⃣ The customer usually lands back here BEFORE the webhook does, so
+  // keep asking the server while the payment is unconfirmed.
+  useEffect(() => {
+    if (!isAwaitingPayment) return;
+
+    const intervalId = setInterval(() => {
+      void refetch();
+    }, PAYMENT_POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [isAwaitingPayment, refetch]);
 
   const handleCancel = async () => {
     if (!order) return;
@@ -64,6 +103,19 @@ export const OrderTrackingPage = () => {
     }
   };
 
+  // 4️⃣ "Try payment again": each call starts a fresh payment attempt
+  const handleRetryPayment = async () => {
+    if (!order) return;
+
+    try {
+      const { checkoutUrl } = await createPayment(order._id).unwrap();
+      window.location.assign(checkoutUrl);
+    } catch (err: unknown) {
+      const errorData = err as { data?: { message?: string } };
+      toast.error(errorData.data?.message || "Couldn't start the payment.");
+    }
+  };
+
   const placedAt = order?.createdAt
     ? new Date(order.createdAt).toLocaleString([], {
         hour: "2-digit",
@@ -71,6 +123,12 @@ export const OrderTrackingPage = () => {
         day: "numeric",
         month: "short",
       })
+    : null;
+
+  const statusCopy = order
+    ? needsPayment
+      ? PAYMENT_COPY
+      : STATUS_COPY[order.status]
     : null;
 
   return (
@@ -97,8 +155,35 @@ export const OrderTrackingPage = () => {
           </div>
         )}
 
-        {order && (
+        {order && statusCopy && (
           <>
+            {/* 5️⃣ Payment banners (online orders only) */}
+            {isAwaitingPayment && (
+              <div className="bg-brand-peach border border-brand-orange/30 text-brand-charcoal text-sm rounded-xl p-4 flex items-center gap-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-orange flex-shrink-0" />
+                <span>
+                  Confirming your payment... this usually takes a few seconds.
+                </span>
+              </div>
+            )}
+
+            {paymentFailed && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl p-4 space-y-3">
+                <p>
+                  Your payment didn't go through. Your order hasn't been sent to
+                  the kitchen yet.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRetryPayment}
+                  disabled={isRetrying}
+                  className="px-4 py-2 rounded-lg bg-brand-orange hover:bg-brand-orange-dark text-white font-medium transition disabled:opacity-50 cursor-pointer"
+                >
+                  {isRetrying ? "Redirecting..." : "Try payment again"}
+                </button>
+              </div>
+            )}
+
             <section className="bg-white rounded-2xl border border-brand-peach p-6">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-semibold text-brand-orange bg-brand-peach px-3 py-1 rounded-full">
@@ -123,10 +208,10 @@ export const OrderTrackingPage = () => {
                   they arrive over the socket */}
               <div aria-live="polite">
                 <h1 className="text-xl font-bold text-brand-charcoal">
-                  {STATUS_COPY[order.status].title}
+                  {statusCopy.title}
                 </h1>
                 <p className="text-sm text-brand-charcoal/60 mt-1">
-                  {STATUS_COPY[order.status].subtitle}
+                  {statusCopy.subtitle}
                 </p>
               </div>
 
@@ -168,7 +253,14 @@ export const OrderTrackingPage = () => {
               )}
 
               <div className="flex justify-between font-bold text-brand-charcoal mt-4 pt-4 border-t border-brand-peach">
-                <span>Total</span>
+                <span>
+                  Total
+                  {order.paymentStatus === "paid" && (
+                    <span className="ml-2 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                      Paid
+                    </span>
+                  )}
+                </span>
                 <span>{order.totalPrice.toFixed(2)} EGP</span>
               </div>
             </section>
