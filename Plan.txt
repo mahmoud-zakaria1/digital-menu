@@ -8,6 +8,7 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
     - dependencies
         - express mongoose dotenv bcrypt jsonwebtoken socket.io zod
         - cors cookie-parser multer cloudinary
+        - helmet express-rate-limit (security hardening, see Fixes Log)
     - Dev dependencies
         - nodemon typescript tsx ts-node @types/*
         - jest ts-jest supertest @types/jest @types/supertest
@@ -45,6 +46,10 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] First-Admin bootstrap: `npm run seed:admin` (idempotent),
             because neither register nor the staff endpoint can create
             the first Admin
+        [✓] Brute-force protection: login + register share a rate limit
+            (20 attempts / 15 min / IP), enforced in production only
+        [✓] JWT_SECRET is mandatory in production (the server refuses to
+            boot without it instead of using a guessable fallback)
 
     - Category API's (NOT in original plan - added for filtering)
         [✓] GET (public), POST/PUT/DELETE (Admin only)
@@ -55,6 +60,7 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] Admin-only mutations, public read
         [✓] References Category via ObjectId (not free-text string)
         [✓] Duplicate name prevention
+        [✓] Search input is regex-escaped before reaching $regex (ReDoS)
 
     - Upload API's (Cloudinary) - added for the Admin Dashboard
         [✓] POST /api/uploads/meal-image (Admin only): multer memory
@@ -67,7 +73,9 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
         [✓] Delete protection (blocked if table has active order)
         [✓] Orders can now carry an optional `table` reference, set
             automatically as "Occupied" with currentOrder linked when an
-            order is created from a table's QR code (see Fixes Log below)
+            order goes live (see Fixes Log below)
+        [✓] A table is released (Available + currentOrder cleared) when
+            its order is completed, cancelled or deleted
 
     - Socket.io Setup (The Real-Time Engine)
         [✓] Initialize Socket.io server alongside Express (shared HTTP server)
@@ -76,22 +84,31 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
             moduleResolution:nodenext type incompatibility)
         [✓] Room-based tracking (track_order) with ownership/role authorization
         [✓] Connection Resilience: pingTimeout/pingInterval configured
-            (client-side reconnect logic deferred to frontend phase)
+            (client-side reconnect logic lives in the frontend hooks)
 
     - Order API's & Real-Time Flow
         [✓] POST Order -> server-side price calculation (prevents tampering)
-            -> Save to DB -> emit "new_order" (populated payload) to all
-            connected clients
+            -> Save to DB. CASH orders go live immediately
+            (publishOrderToStaff: table Occupied + "new_order" to
+            staff_room only). ONLINE orders stay invisible until the
+            Paymob webhook confirms the payment.
+        [✓] Duplicate meal lines in one order are merged (quantities
+            summed); unavailable meals (isAvailable=false) are rejected
+        [✓] Order carries paymentMethod (cash|online) and paymentStatus
+            (pending|paid|failed). paymentMethod is a client CHOICE;
+            paymentStatus is only ever written by the webhook
         [✓] GET Orders (all + by id); by-id is open to the order's owner
             and staff (403 for anyone else) so customers can track
-            their own order
+            their own order. Staff lists never include unpaid online orders
         [✓] GET /api/orders/stats (Admin only): total revenue (completed
-            orders only), active order count (pending + preparing), top 5
-            best-selling meals - MongoDB aggregation, declared BEFORE
+            orders only), active order count (pending + preparing, unpaid
+            online excluded), top 5 best-selling meals (cancelled and
+            unpaid online excluded) - MongoDB aggregation, declared BEFORE
             GET /:id so Express doesn't read "stats" as an order id
         [✓] PATCH Order Status -> enforces state machine
             (pending -> preparing -> completed, cancelled is terminal)
-            -> emit "status_changed" to order-specific room
+            -> emit "status_changed" to the order room AND staff_room.
+            Refuses an online order that hasn't been paid
         [✓] Cancel Order (owner, Admin, or Cashier; pending-only, blocked
             if already paid)
         [✓] Delete Order (Admin only, hard delete)
@@ -100,35 +117,52 @@ DIGITAL MENU / POS SYSTEM - BACKEND PLAN
     - Payment Related API's
         [✓] CHANGED FROM PLAN: Paymob instead of Razorpay
             (Razorpay not available in Egypt market)
-        [✓] Create Payment Intention API (Paymob Intentions API, secured)
-        [✓] Paymob Webhook with HMAC signature verification + idempotency
-        [✓] emit "payment_status_changed" to order room on webhook confirmation
+        [✓] Create Payment Intention API (Paymob Intentions API, secured).
+            Each call is a fresh attempt, so a failed/abandoned payment
+            can be retried; returns the hosted checkout URL
+        [✓] Paymob Webhook with HMAC signature verification + idempotency:
+            payment found by Paymob's SIGNED order id, signed amount and
+            currency checked, every state change an atomic compare-and-set
+        [✓] Payment.paymobOrderId is persisted (unique + sparse) so the
+            webhook can always be matched back to its attempt
+        [✓] A confirmed payment sends the order straight to "preparing" and
+            only THEN publishes it to staff (new_order + bell + table)
+        [✓] emit "payment_status_changed" (+ "status_changed") to the
+            order room on webhook confirmation
         [✓] Order cancellation blocked once payment is confirmed
         [✓] Tested end-to-end via ngrok (real Paymob test-mode checkout flow)
+        [ ] No refund flow yet: a payment that arrives for an already
+            cancelled order is only logged for a manual refund
 
 [✓] Testing
     - Jest + Supertest + isolated Atlas test database
     - Orders API integration tests: server-side price calc, strict
-      field rejection, state machine transitions
+      field rejection, state machine transitions, owner/staff access
     - Admin test fixture now seeded directly via User.create() (see Fixes
       Log - public register no longer accepts a client-supplied role)
     - Session renewal rule (utils/session.ts) is unit-tested: no renewal
       while fresh, original login time preserved, absolute cap respected,
       legacy tokens without authTime handled
-    - NOT yet covered by tests: stats aggregation, staff creation, logout,
-      meal image upload (candidates for a later round)
+    - NOT yet covered by tests: PAYMENT WEBHOOK (bad HMAC, replay,
+      amount mismatch, paid-after-cancel), online-order visibility rules,
+      table release, stats aggregation, staff creation, logout, meal
+      image upload (candidates for the next round - the webhook first)
 
 [✓] README.md
     - Architecture decisions, setup instructions, API overview, tech stack rationale
     - TODO: API table + env var list need the newer endpoints
-      (staff, logout, stats, uploads), CLOUDINARY_* variables, and a
-      "First Admin" setup step (npm run seed:admin + ADMIN_* variables)
+      (staff, logout, stats, uploads), CLOUDINARY_* and PAYMOB_PUBLIC_KEY
+      variables, and a "First Admin" setup step (npm run seed:admin +
+      ADMIN_* variables). Rate limiting is now real (production only)
 
 [✓] Deploy (Backend)
     - CHANGED FROM PLAN: Railway first (quick deploy for job applications),
       then AWS/DigitalOcean later once frontend is built (learning goal)
-    - NOTE: CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET must also be set
-      in Railway's environment variables, not just the local .env
+    - NOTE: CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET, PAYMOB_PUBLIC_KEY
+      and JWT_SECRET must also be set in Railway's environment variables,
+      not just the local .env
+    - NOTE: Paymob dashboard -> the integration's "Transaction processed
+      callback" must point to https://<railway-url>/api/payments/webhook
 
 
 ========================================
@@ -259,8 +293,7 @@ SECURITY & BUG FIXES LOG
   so the Cashier board never heard about changes it didn't make itself
   (a customer cancelling, another staff member advancing an order). It
   is now sent to the order room AND staff_room via one chained .to(),
-  delivered once to anyone in both. The payment webhook still emits its
-  own order_status_changed - to be unified when Paymob is wired in.
+  delivered once to anyone in both.
 - [FULL-STACK / RELIABILITY] Missed events: Socket.IO doesn't replay what
   a client missed while offline or still connecting, so a wifi blip - or
   an order created between the board's first fetch and its socket
@@ -273,6 +306,75 @@ SECURITY & BUG FIXES LOG
   now live in one createSocket() helper (src/api/socket.ts) instead of
   being repeated per hook; order label helpers (type, meal name, short
   id) are shared by the Cashier card and the tracking page.
+- [BACKEND / BUG] The payment refactor was only half applied: the types
+  and the payments controller already used paymentMethod / paymentStatus /
+  paymobOrderId, but the Mongoose schemas and the order validator didn't
+  know them. Mongoose silently drops unknown fields, so every
+  POST /payments/create would have answered 400 (paymentMethod always
+  "undefined") and the webhook could never find its Payment (paymobOrderId
+  never saved). Order and Payment schemas + createOrderValidate now carry
+  the fields; paymentStatus is deliberately NOT accepted from the client.
+- [BACKEND / BUG] Online orders rang the bell before being paid.
+  createOrder marked the table Occupied and emitted new_order for every
+  order, so an abandoned Paymob checkout left a ghost order on the
+  Cashier's board (and the kitchen might cook it). Now createOrder only
+  publishes CASH orders; online orders are published by the webhook once
+  the payment is confirmed. Both paths share publishOrderToStaff, so
+  "what happens when an order goes live" lives in one place.
+- [BACKEND / SECURITY] Staff could see and advance an unpaid online order:
+  GET /orders listed it and PATCH /:id/status accepted it. List/stats
+  queries now exclude online orders that aren't paid, and updateOrder
+  refuses them (hiding a card in the UI is not a guard). The filter uses
+  `paymentMethod: { $ne: "online" }` so orders created before the field
+  existed stay visible.
+- [BACKEND / BUG] Tables never became free again: an order completing or
+  being cancelled left the table "Occupied" with a stale currentOrder,
+  which also made DELETE /api/tables/:id impossible forever. releaseTable()
+  now runs on complete / cancel / delete, and only frees the table if its
+  currentOrder is still THAT order (a newer order may already own it).
+- [BACKEND / BUG] The same meal sent twice in one order (two lines) made
+  the "every id was found" check report a meal as missing, and
+  isAvailable was never checked, so a switched-off meal could still be
+  ordered. Duplicate lines are merged server-side (quantities summed) and
+  unavailable meals are rejected with their names.
+- [BACKEND / SECURITY] The meal search term went straight into $regex on a
+  public endpoint - a crafted pattern could trigger catastrophic
+  backtracking (ReDoS). It is now regex-escaped and matched literally.
+- [BACKEND / SECURITY] JWT_SECRET had a hardcoded public fallback in every
+  environment, so a production deploy that forgot the variable would sign
+  sessions with a secret anyone can read in the repo. The server now
+  refuses to start in production without it.
+- [BACKEND / SECURITY] Added helmet (security headers; CSP off on purpose
+  for a JSON API + Swagger UI), `trust proxy` (behind Railway every
+  request otherwise shares the proxy's IP) and a rate limit on login +
+  register (20 / 15 min / IP, production only so dev and the test suite
+  aren't locked out). The README already claimed rate limiting - it is
+  real now.
+- [BACKEND / SECURITY] test-socket-client.js had a real JWT hardcoded in a
+  tracked file. It now reads TEST_TOKEN from .env. ROTATE JWT_SECRET if
+  that token was ever valid against production - anything committed must
+  be treated as leaked.
+- [FRONTEND / BUG] MealsPagination declared `totalPaged` while the backend
+  sends `totalPages`, and RegisterInput still allowed a `role` the backend
+  rejects. Both types now mirror the real API.
+- [FRONTEND / FEATURE] Price reconciliation at checkout. After the order is
+  created, the SERVER's total is compared (in piastres, to avoid float
+  noise) with the total the customer saw. If they differ, a modal shows
+  the new price and the customer must Continue or Cancel the order (the
+  cart is kept intact until they decide).
+- [FRONTEND / FEATURE] Online payment. Checkout offers Cash or Online;
+  online creates the order, calls POST /payments/create and redirects to
+  Paymob's hosted checkout (the backend builds the URL, so the frontend
+  never touches a Paymob key). If starting the payment fails, the
+  customer lands on the tracking page, which offers "Try payment again".
+- [FRONTEND / FEATURE] Tracking page handles payment states. Paymob sends
+  the customer back BEFORE the webhook usually arrives, so for an unpaid
+  online order the page shows "Confirming your payment...", listens for
+  payment_status_changed, and polls every 5 s as a safety net (events are
+  never replayed). A failed payment shows a retry button. The redirect's
+  query params are never trusted - only what the signed webhook recorded.
+- [FRONTEND / UX] Cashier cards show a "Paid online" / "Cash" badge so the
+  person at the counter knows whether there is money to collect.
 
 
 ========================================
@@ -312,9 +414,8 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     handles a meal that's been deleted from the menu since being added
 [✓] Checkout page (/checkout): auto-detects Dine-in from cart's tableId,
     otherwise Delivery/Takeaway selection (address required for
-    Delivery only); phone prefilled from profile, editable; Cash
-    payment fully functional, Online (Paymob) shown but disabled -
-    "Coming in Phase 5" per the phase-separation decision below
+    Delivery only); phone prefilled from profile, editable; Cash and
+    Online (Paymob) payment both functional (see Phase 5)
 [✓] Dynamic QR/Table handling - DONE: reading ?table= from the URL and
     syncing it into the cart was done alongside the Menu page
     (setTableFromUrl); sending it on order creation is done as part of
@@ -337,6 +438,7 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
         NOTE: the original plan said "Pending -> Preparing -> Ready ->
         Completed", but the backend state machine has no "Ready" state,
         so the board follows the backend: pending -> preparing -> completed
+    [✓] Payment badge on each card (Cash / Paid online)
 [✓] Admin Dashboard (/admin):
     [✓] Full CRUD UI for menu (meals + categories), one modal handles
         create + edit; category delete surfaces the backend's real
@@ -355,12 +457,17 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     pending, and a short order id (#A1B2C3) the customer can quote to
     staff - the same id now shows on the Cashier card. Replaces the old
     inline "Order Placed!" screen: Checkout now redirects here
-[ ] Price reconciliation: after order creation, replace the locally
-    computed cart total with the server-returned order total before
-    proceeding to payment (never trust the client-side calc for the
-    amount actually charged)
-[ ] Paymob checkout flow: redirect + success/callback handling, enable
-    the Online Payment option in CheckoutPage
+[✓] Price reconciliation: after order creation, the server-returned total
+    is compared with the cart's locally computed total; on a difference
+    the customer must explicitly Continue or Cancel the order
+[✓] Paymob checkout flow: Online option enabled in CheckoutPage;
+    POST /payments/create -> redirect to the hosted checkout; the
+    tracking page shows "Confirming your payment...", live
+    payment_status_changed updates, a 5 s polling safety net, a retry
+    button on failure and a "Paid" badge
+[ ] END-TO-END VERIFICATION of the payment flow with real Paymob test
+    cards: success, failure + retry, abandoned checkout (order must
+    never reach the Cashier board), price-mismatch modal
 [ ] Responsive design: mobile-first for Customer/Cashier, larger-screen
     layout for Admin
 
@@ -383,7 +490,7 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
     - Screenshots/GIFs of dashboards and live order tracking
 
 [✓] Connect frontend to backend APIs - auth, menu, orders, uploads,
-    staff and stats done; payments still to be wired up in Phase 5
+    staff, stats and payments
 [✓] Socket.io client reconnect + re-sync: socket.io-client reconnects
     automatically; on EVERY connect the tracking page re-joins its
     order room and re-fetches once the server acknowledges the join,
@@ -393,13 +500,28 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 
 
 ========================================
+NEXT STEPS (in this order)
+========================================
+[ ] 1. Table management + QR generation in the Admin Dashboard - without it
+       the "Digital Menu" (scan a QR at the table) story isn't demo-able
+       end to end
+[ ] 2. Webhook + payment-visibility tests (bad HMAC, replay, amount
+       mismatch, paid-after-cancel, unpaid online hidden from staff)
+       + GitHub Actions running `tsc` and `npm test`
+[ ] 3. Deploy under ONE parent domain (app.x.com + api.x.com): Safari/iOS
+       blocks cross-site cookies even with SameSite=None, so a Vercel
+       frontend + Railway backend on different domains breaks login on
+       most customers' phones. A rewrite/proxy won't carry the WebSocket
+[ ] 4. Refresh the README (new endpoints, env vars, First Admin step) and
+       add a live demo link + test accounts per role + a short GIF
+
+
+========================================
 PHASE 2 / FUTURE IDEAS (documented, not built yet)
 ========================================
-- Table management + QR generation in the Admin Dashboard: the customer
-  flow depends on /menu?table=<id> links, but there is currently no UI to
-  create tables or generate a printable QR per table (tables exist only via
-  Swagger/Postman). Strong candidate right after Phase 5 - the QR ordering
-  story isn't demo-able end to end without it.
+- Refund flow (Paymob): a payment that succeeds for an order cancelled in
+  the meantime is currently only logged ("needs a manual refund"). Needed
+  both for that case and for reservation deposits below
 - Refresh-token rotation (short-lived access token + DB-stored, revocable
   refresh token) as the stronger successor to the current sliding
   session, which can't revoke an individual session - only deleting or
@@ -427,6 +549,9 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
 - Pagination on Order.find() / heavier list endpoints: the Cashier board
   fetches one page of 100 and splits it by status client-side - fine at
   demo scale, the real bottleneck for a busy restaurant
+- Menu/Cart fetch one page of 100 meals to cross-reference prices; a menu
+  larger than that would show "unavailable" lines - fix with a by-ids
+  endpoint when the menu grows
 - Category existence check on Table.currentOrder reference (minor gap)
 - Reservation deposits: distinct from a Dine-in order (which assumes the
   customer is already physically at the table) - a true Reservation
@@ -436,10 +561,8 @@ PHASE 2 / FUTURE IDEAS (documented, not built yet)
   own Reservation entity (date/time, table availability, distinct from
   Table.status="Reserved" which is currently Admin/Cashier-only), a
   Payment tied to the reservation rather than an order, and a partial-
-  refund flow through Paymob (the backend currently only has a webhook
-  that records success/failure - no refund endpoint exists yet).
-  Deliberately not started until the Phase 5 payment + tracking work is
-  done first.
+  refund flow through Paymob (see the refund idea above).
+  Deliberately not started until the next steps above are done.
 
 ========================================
 KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
@@ -457,19 +580,33 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 - All Zod validators use .strict() to reject unexpected fields
   (e.g. blocks client-sent totalPrice tampering)
   -> Frontend cart totals are for UI/UX only; the server is the source of
-     truth for price calculation and re-validates on every order.
+     truth for price calculation and re-validates on every order. The
+     checkout reconciles the two and lets the customer decide on a mismatch.
 - Global error handler is the single source of truth for error response
   shape - controllers just call next(error)
   -> Frontend's global Error Boundary / Toast system should be built
      around this single response shape.
 - assertUser / assertExists helper functions (TypeScript type predicates)
   eliminate repeated null checks across controllers
-- Public routes never accept a client-supplied `role`, `totalPrice`, or
-  any other field that determines trust/money - those are always
-  server-derived or Admin-only. Privileged capabilities (creating staff)
-  live on separate Admin-only endpoints rather than as optional fields on
-  public ones. This is a running principle, not a one-off fix (see
-  Security & Bug Fixes Log).
+- Public routes never accept a client-supplied `role`, `totalPrice`,
+  `paymentStatus` or any other field that determines trust/money - those
+  are always server-derived or Admin-only. Privileged capabilities
+  (creating staff) live on separate Admin-only endpoints rather than as
+  optional fields on public ones. This is a running principle, not a
+  one-off fix (see Security & Bug Fixes Log).
+- An order "goes live" at exactly one moment: cash = when created,
+  online = when the signed webhook confirms the payment. Both paths call
+  publishOrderToStaff (utils/orderEvents.ts); releaseTable is its mirror
+  image when the order ends. Until an online order is paid it is invisible
+  to staff in lists, stats and the status endpoint (a UI-only hide is not
+  a guard).
+- Payments: the browser redirect back from Paymob is NEVER trusted. Only
+  the HMAC-verified webhook marks anything paid; the webhook finds its
+  payment by Paymob's SIGNED order id (never merchant_order_id), checks
+  the signed amount/currency, and applies every change as an atomic
+  compare-and-set so retries and simultaneous callbacks are harmless.
+  Each POST /payments/create is a fresh attempt, so "try again" is just
+  calling it again.
 - Cart slice stores mealId+quantity references only, never a price/name
   snapshot - same "references over embedding" principle as Meal/Category
   on the backend. Price/name are read live from the meals RTK Query
@@ -530,6 +667,7 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
   optimisation, never the source of truth. On every (re)connect the
   client re-fetches over REST (the tracking page after the room-join
   ack), because Socket.IO doesn't replay what was missed while offline.
+  The tracking page additionally polls while a payment is unconfirmed.
 - Socket rooms are the access-control boundary: order_<id> rooms are
   joined only after an owner/staff check, staff_room holds Admin/Cashier
   sockets, and anything carrying personal data (new_order) is emitted to
@@ -537,3 +675,8 @@ KNOWN ARCHITECTURE DECISIONS WORTH REMEMBERING
 - A customer-facing order view never shows per-line prices (see the
   price-snapshot Future Idea): names, quantities and the order's stored
   total are the only figures guaranteed to be consistent.
+- Operational guards belong at the edge of the app: helmet, trust proxy
+  (one hop, for Railway) and a production-only rate limit on the public
+  auth routes; the server refuses to boot in production without
+  JWT_SECRET. Secrets never live in tracked files (test-socket-client.js
+  reads TEST_TOKEN from .env).
