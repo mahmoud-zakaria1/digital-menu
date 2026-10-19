@@ -7,7 +7,12 @@ import { selectCartTableId } from "../../cart/cartSelectors";
 import { clearCart, clearTable } from "../../cart/cartSlice";
 import { useCartLines } from "../../cart/useCartLines";
 import { useGetProfileQuery } from "../../auth/authApiSlice";
-import { useCreateOrderMutation } from "../ordersApiSlice";
+import {
+  useCreateOrderMutation,
+  useCancelOrderMutation,
+} from "../ordersApiSlice";
+import { useCreatePaymentMutation } from "../paymentsApiSlice";
+import type { Order, PaymentMethod } from "../types/order.types";
 
 type OrderType = "delivery" | "takeaway";
 
@@ -21,10 +26,19 @@ export const CheckoutPage = () => {
   const { lines, totalPrice, isLoading, isError } = useCartLines();
   const { data: profile } = useGetProfileQuery();
   const [createOrder, { isLoading: isSubmitting }] = useCreateOrderMutation();
+  const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
+  const [createPayment, { isLoading: isStartingPayment }] =
+    useCreatePaymentMutation();
 
   const [orderType, setOrderType] = useState<OrderType>("delivery");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+
+  // Set when the SERVER's total for the freshly created order differs from
+  // the total the customer saw in the cart. Holds that order so the
+  // customer can explicitly continue with it or cancel it.
+  const [priceMismatch, setPriceMismatch] = useState<Order | null>(null);
 
   // Prefill phone from the logged-in user's profile once it loads, without
   // clobbering it if the customer edits it afterward. Deliberately NOT a
@@ -47,6 +61,45 @@ export const CheckoutPage = () => {
   const isAddressValid = !needsAddress || address.trim().length > 0;
   const canSubmit =
     !isEmpty && !hasInvalidLines && isPhoneValid && isAddressValid;
+  const isBusy = isSubmitting || isStartingPayment;
+
+  // 1️⃣ The order is on the server now, so the local cart has done its job
+  const finishCheckout = () => {
+    dispatch(clearCart());
+    dispatch(clearTable());
+  };
+
+  // 2️⃣ Send the customer to Paymob's hosted checkout page
+  const goToPayment = async (order: Order) => {
+    try {
+      const { checkoutUrl } = await createPayment(order._id).unwrap();
+      finishCheckout();
+      // A full-page redirect, not navigate(): the checkout lives on
+      // Paymob's domain, outside this single-page app.
+      window.location.assign(checkoutUrl);
+    } catch (err: unknown) {
+      const errorData = err as { data?: { message?: string } };
+      // The order already exists, so don't strand the customer here: the
+      // tracking page offers "Try payment again" for exactly this case.
+      finishCheckout();
+      toast.error(errorData.data?.message || "Couldn't start the payment.");
+      navigate(`/orders/${order._id}/track`, { replace: true });
+    }
+  };
+
+  // 3️⃣ Continue with an accepted order: cash -> tracking page, online -> Paymob
+  const proceed = async (order: Order) => {
+    if (order.paymentMethod === "online") {
+      await goToPayment(order);
+      return;
+    }
+
+    finishCheckout();
+    toast.success("Order placed!");
+    // Hand off to the live tracking page (replace: Back from there
+    // shouldn't land on a checkout for a cart that no longer exists).
+    navigate(`/orders/${order._id}/track`, { replace: true });
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -58,22 +111,50 @@ export const CheckoutPage = () => {
           quantity: line.quantity,
         })),
         phone: phone.trim(),
+        paymentMethod,
         ...(needsAddress && { address: address.trim() }),
         ...(isDineIn && tableId && { table: tableId }),
       }).unwrap();
 
-      dispatch(clearCart());
-      dispatch(clearTable());
-      toast.success("Order placed!");
-      // Hand off to the live tracking page (replace: Back from there
-      // shouldn't land on a checkout for a cart that no longer exists).
-      navigate(`/orders/${order._id}/track`, { replace: true });
+      // 4️⃣ Price reconciliation: the server is the only source of truth for
+      // what is charged. Compared in piastres (integers) so floating-point
+      // noise can't produce a false mismatch. If the totals differ the
+      // customer decides explicitly instead of being surprised at payment.
+      if (Math.round(order.totalPrice * 100) !== Math.round(totalPrice * 100)) {
+        setPriceMismatch(order);
+        return;
+      }
+
+      await proceed(order);
     } catch (err: unknown) {
       const errorData = err as { data?: { message?: string } };
       toast.error(
         errorData.data?.message || "Couldn't place your order. Try again.",
       );
     }
+  };
+
+  // 5️⃣ Customer rejected the new price: cancel the order we just created.
+  // The cart is still intact, so they can review it and try again.
+  const handleCancelMismatch = async () => {
+    if (!priceMismatch) return;
+
+    try {
+      await cancelOrder(priceMismatch._id).unwrap();
+      setPriceMismatch(null);
+      toast("Order cancelled. Review your cart and try again.");
+    } catch (err: unknown) {
+      const errorData = err as { data?: { message?: string } };
+      toast.error(errorData.data?.message || "Couldn't cancel the order.");
+    }
+  };
+
+  const handleAcceptMismatch = () => {
+    if (!priceMismatch) return;
+
+    const order = priceMismatch;
+    setPriceMismatch(null);
+    void proceed(order);
   };
 
   return (
@@ -126,7 +207,7 @@ export const CheckoutPage = () => {
               </div>
             )}
 
-            {/* 2️⃣ Order type */}
+            {/* 6️⃣ Order type */}
             <section className="bg-white rounded-2xl border border-brand-peach p-5">
               <h2 className="font-semibold text-brand-charcoal mb-3">
                 Order Type
@@ -156,7 +237,7 @@ export const CheckoutPage = () => {
               )}
             </section>
 
-            {/* 3️⃣ Contact details */}
+            {/* 7️⃣ Contact details */}
             <section className="bg-white rounded-2xl border border-brand-peach p-5 space-y-4">
               <h2 className="font-semibold text-brand-charcoal">
                 Contact Details
@@ -196,41 +277,46 @@ export const CheckoutPage = () => {
               )}
             </section>
 
-            {/* 4️⃣ Payment method */}
+            {/* 8️⃣ Payment method */}
             <section className="bg-white rounded-2xl border border-brand-peach p-5">
               <h2 className="font-semibold text-brand-charcoal mb-3">
                 Payment Method
               </h2>
 
               <div className="space-y-2">
-                <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-brand-orange bg-brand-peach/40 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    checked
-                    readOnly
-                    className="accent-brand-orange"
-                  />
-                  <span className="text-sm font-medium text-brand-charcoal">
-                    Cash on {isDineIn ? "table" : "delivery/pickup"}
-                  </span>
-                </label>
-
-                <label className="flex items-center justify-between gap-3 p-3 rounded-lg border-2 border-brand-peach opacity-50 cursor-not-allowed">
-                  <span className="flex items-center gap-3">
-                    <input type="radio" name="paymentMethod" disabled />
+                {(
+                  [
+                    {
+                      value: "cash",
+                      label: `Cash on ${isDineIn ? "table" : "delivery/pickup"}`,
+                    },
+                    { value: "online", label: "Pay online (card / wallet)" },
+                  ] as const
+                ).map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
+                      paymentMethod === option.value
+                        ? "border-brand-orange bg-brand-peach/40"
+                        : "border-brand-peach"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === option.value}
+                      onChange={() => setPaymentMethod(option.value)}
+                      className="accent-brand-orange"
+                    />
                     <span className="text-sm font-medium text-brand-charcoal">
-                      Online Payment (Paymob)
+                      {option.label}
                     </span>
-                  </span>
-                  <span className="text-xs font-medium text-brand-charcoal/50">
-                    Coming in Phase 5
-                  </span>
-                </label>
+                  </label>
+                ))}
               </div>
             </section>
 
-            {/* 5️⃣ Order summary */}
+            {/* 9️⃣ Order summary */}
             <section className="bg-white rounded-2xl border border-brand-peach p-5">
               <h2 className="font-semibold text-brand-charcoal mb-3">
                 Order Summary
@@ -265,13 +351,51 @@ export const CheckoutPage = () => {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!canSubmit || isSubmitting}
+              disabled={!canSubmit || isBusy}
               className="w-full py-3.5 bg-brand-orange hover:bg-brand-orange-dark text-white font-semibold rounded-xl transition disabled:opacity-50 cursor-pointer"
             >
-              {isSubmitting
-                ? "Placing Order..."
-                : `Place Order — ${totalPrice.toFixed(2)} EGP`}
+              {isBusy
+                ? "Please wait..."
+                : paymentMethod === "online"
+                  ? `Pay ${totalPrice.toFixed(2)} EGP`
+                  : `Place Order — ${totalPrice.toFixed(2)} EGP`}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🔟 Price changed while the customer was ordering - they must
+          explicitly accept the server's total or cancel the order */}
+      {priceMismatch && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm p-6">
+            <h2 className="text-lg font-bold text-brand-charcoal mb-2">
+              The price changed
+            </h2>
+            <p className="text-sm text-brand-charcoal/70 mb-4">
+              Prices were updated while you were ordering. Your total is now{" "}
+              <span className="font-bold text-brand-charcoal">
+                {priceMismatch.totalPrice.toFixed(2)} EGP
+              </span>{" "}
+              instead of {totalPrice.toFixed(2)} EGP.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelMismatch}
+                disabled={isCancelling}
+                className="flex-1 py-2.5 rounded-lg border border-brand-peach text-brand-charcoal font-medium transition disabled:opacity-50 cursor-pointer"
+              >
+                {isCancelling ? "Cancelling..." : "Cancel order"}
+              </button>
+              <button
+                type="button"
+                onClick={handleAcceptMismatch}
+                className="flex-1 py-2.5 rounded-lg bg-brand-orange hover:bg-brand-orange-dark text-white font-medium transition cursor-pointer"
+              >
+                Continue
+              </button>
+            </div>
           </div>
         </div>
       )}
