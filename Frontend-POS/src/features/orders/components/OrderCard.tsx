@@ -40,12 +40,28 @@ export const OrderCard = ({
       })
     : null;
 
+  // Tells the Cashier whether there is money to collect. An online order
+  // only ever reaches this board AFTER the webhook confirmed its payment
+  // (the backend hides unpaid ones from staff), so "Paid online" is accurate.
+  const isPaidOnline = order.paymentMethod === "online";
+
   return (
     <div className="bg-white rounded-xl border border-brand-peach p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-brand-orange bg-brand-peach px-2.5 py-1 rounded-full">
-          {getOrderTypeLabel(order)}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-brand-orange bg-brand-peach px-2.5 py-1 rounded-full">
+            {getOrderTypeLabel(order)}
+          </span>
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+              isPaidOnline
+                ? "bg-green-50 text-green-600"
+                : "bg-brand-peach text-brand-charcoal/70"
+            }`}
+          >
+            {isPaidOnline ? "Paid online" : "Cash"}
+          </span>
+        </div>
         <span className="text-xs text-brand-charcoal/40">
           #{getShortOrderId(order)}
           {placedAt && ` · ${placedAt}`}
