@@ -232,15 +232,19 @@ export const getOrderStats = async (
   next: NextFunction,
 ) => {
   try {
+    // Orders currently in the kitchen pipeline that are real to the
+    // restaurant (unpaid online orders excluded)
+    const activeOrdersFilter: Record<string, any> = {
+      status: { $in: ["pending", "preparing"] },
+      ...staffVisibleFilter(),
+    };
+
     const [revenueResult, activeOrders, bestSellingMeals] = await Promise.all([
       Order.aggregate([
         { $match: { status: "completed" } },
         { $group: { _id: null, totalRevenue: { $sum: "$totalPrice" } } },
       ]),
-      Order.countDocuments({
-        status: { $in: ["pending", "preparing"] },
-        ...staffVisibleFilter(),
-      }),
+      Order.countDocuments(activeOrdersFilter),
       Order.aggregate([
         { $match: { status: { $ne: "cancelled" }, ...staffVisibleFilter() } },
         { $unwind: "$meals" },
@@ -434,10 +438,12 @@ export const cancelOrder = async (
       return next(error);
     }
 
-    const existingPayment = await Payment.findOne({
-      order: orderId.toString(),
+    // Same loose-filter approach as the other dynamic queries here
+    const paidPaymentFilter: Record<string, any> = {
+      order: orderId,
       status: "paid",
-    } as Record<string, any>);
+    };
+    const existingPayment = await Payment.findOne(paidPaymentFilter);
     if (existingPayment) {
       const error: any = new Error(
         "Cannot cancel an order that has already been paid",
