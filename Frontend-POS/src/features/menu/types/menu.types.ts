@@ -17,9 +17,11 @@ export interface Meal {
   isAvailable: boolean;
 }
 
+// Mirrors the pagination object meals.controller.ts returns exactly.
+// (The key used to be spelled "totalPaged", which the backend never sent.)
 export interface MealsPagination {
   totalMeals: number;
-  totalPaged: number;
+  totalPages: number;
   currentPage: number;
   limit: number;
   hasNextPage: boolean;

@@ -15,11 +15,14 @@ export interface LoginInput {
   password?: string;
 }
 
+// `role` is intentionally absent: public registration can never choose a
+// role (the backend's .strict() schema rejects it). Staff accounts are
+// created by an Admin through POST /api/users/staff instead.
 export interface RegisterInput {
   name: string;
   email: string;
+  phone: string;
   password?: string;
-  role?: "Customer" | "Cashier" | "Admin";
 }
 
 // 3️⃣ API Response Shape
