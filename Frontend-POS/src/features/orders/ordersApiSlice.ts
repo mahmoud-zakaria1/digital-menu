@@ -1,11 +1,19 @@
 import { apiSlice } from "../../api/apiSlice";
-import type { Order, OrderStats, OrderStatus } from "./types/order.types";
+import type {
+  Order,
+  OrderStats,
+  OrderStatus,
+  PaymentMethod,
+} from "./types/order.types";
 
 export interface CreateOrderPayload {
   meals: { meal: string; quantity: number }[];
   phone: string;
   address?: string;
   table?: string;
+  // Only the customer's CHOICE - whether an online order is actually paid
+  // is decided by the backend's webhook, never by the client.
+  paymentMethod: PaymentMethod;
 }
 
 export interface GetOrdersParams {
@@ -58,6 +66,8 @@ interface GetOrderStatsResponse {
 
 export const ordersApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
+    // The returned order carries the SERVER-calculated totalPrice, which
+    // CheckoutPage reconciles against the cart's locally computed total.
     createOrder: builder.mutation<Order, CreateOrderPayload>({
       query: (payload) => ({
         url: "/orders",
@@ -65,7 +75,10 @@ export const ordersApiSlice = apiSlice.injectEndpoints({
         data: payload,
       }),
       transformResponse: (response: CreateOrderResponse) => response.data,
-      invalidatesTags: [{ type: "Order", id: "LIST" }],
+      invalidatesTags: [
+        { type: "Order", id: "LIST" },
+        { type: "Order", id: "STATS" },
+      ],
     }),
 
     // Used by the Cashier/Admin dashboard - the Kanban board fetches a
