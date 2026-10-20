@@ -375,6 +375,28 @@ SECURITY & BUG FIXES LOG
   query params are never trusted - only what the signed webhook recorded.
 - [FRONTEND / UX] Cashier cards show a "Paid online" / "Cash" badge so the
   person at the counter knows whether there is money to collect.
+- [FRONTEND / FEATURE] Table management + QR codes in the Admin Dashboard.
+  Tables used to exist only via Swagger/Postman, so the core "scan the QR
+  at your table and order" story couldn't be shown end to end. The Admin
+  can now add/delete tables and download a print-ready QR per table (built
+  client-side with qrcode.react; the QR is just a link to
+  /menu?table=<id>, so no new backend endpoint was needed).
+- [FRONTEND / BUG] A new customer who scanned a table's QR code lost the
+  table. ProtectedRoute sends an unauthenticated visitor to /login with
+  state.from = /menu?table=<id>, but the "Create account" link and the
+  post-registration redirect didn't carry that state, so after
+  register -> login they landed on a plain /menu (a delivery order, no
+  table). LoginPage and RegisterPage now forward location.state through
+  the whole login <-> register <-> login loop.
+- [FRONTEND / BUG] The Admin dashboard went stale: a table stayed
+  "Available" (and "Active Orders" stayed one behind the Cashier's board)
+  while an order was in progress, because the Admin page only loaded its
+  data at mount time and the orders come from other devices. Found by
+  comparing the Admin's counters against the Cashier board in a live test.
+  useAdminLiveUpdates() now listens to new_order / status_changed (the
+  Admin is already in staff_room server-side) and re-syncs the tables list
+  and the stats over REST - events are the trigger, REST stays the source
+  of truth. It also re-syncs on every (re)connect.
 
 
 ========================================
@@ -383,7 +405,8 @@ FRONTEND PLAN (React + Vite) - IN PROGRESS
 
 Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
        Redux Toolkit (RTK Query) with Axios instance (withCredentials: true
-       for httpOnly cookie auth), React Hook Form + Zod, Socket.io-client
+       for httpOnly cookie auth), React Hook Form + Zod, Socket.io-client,
+       qrcode.react (table QR codes)
 
 --- Phase 1: Setup, SCSS Config & Architecture (3 days) ---
 [✓] Scaffold project: Vite + React + TypeScript
@@ -449,6 +472,13 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
         orders, top 5 best-selling meals)
     [✓] "Create staff account" UI (+ New Staff modal -> POST
         /api/users/staff) - replaces manual role edits in Atlas
+    [✓] Tables tab: list (sorted by number) with status badge and the
+        current order's summary, + Add Table modal, Delete (the backend's
+        real "active order" refusal is surfaced), and a QR modal per table:
+        scannable code pointing at /menu?table=<id>, Copy link, and a
+        print-ready PNG (QR + "Table N" label). The list refetches every
+        time the tab opens because a table's status changes from other
+        devices. VITE_APP_URL sets the public address printed in the QR.
 
 --- Phase 5: Payments, Live Tracking & Polish (4 days) --- [CURRENT PHASE]
 [✓] Customer order-tracking page (/orders/:id/track): loads the order
@@ -502,9 +532,11 @@ Stack: React + Vite + TypeScript, Tailwind CSS + SASS (.scss),
 ========================================
 NEXT STEPS (in this order)
 ========================================
-[ ] 1. Table management + QR generation in the Admin Dashboard - without it
-       the "Digital Menu" (scan a QR at the table) story isn't demo-able
-       end to end
+[✓] 1. Table management + QR generation in the Admin Dashboard - DONE:
+       the "Digital Menu" (scan a QR at the table) story is now demo-able
+       end to end (Admin adds a table -> prints its QR -> customer scans,
+       orders Dine-in -> Cashier sees "Table N" -> completing the order
+       frees the table)
 [ ] 2. Webhook + payment-visibility tests (bad HMAC, replay, amount
        mismatch, paid-after-cancel, unpaid online hidden from staff)
        + GitHub Actions running `tsc` and `npm test`
