@@ -27,8 +27,10 @@ export const LoginPage = () => {
       toast.success(response.message || "Logged in successfully!");
 
       // If ProtectedRoute redirected the user here from somewhere specific
-      // (e.g. they tried /cashier directly), send them back there instead
-      // of always landing on the generic role home page.
+      // (e.g. they scanned a table's QR code -> /menu?table=<id>, or tried
+      // /cashier directly), send them back there instead of always landing
+      // on the generic role home page. The search part matters: without it
+      // a scanned table would be lost right here.
       const from = (location.state as { from?: Location })?.from;
       const destination = from
         ? `${from.pathname}${from.search ?? ""}`
@@ -103,11 +105,14 @@ export const LoginPage = () => {
           </button>
         </form>
 
-        {/* Footer Link */}
+        {/* Footer Link - forwards the "where to go afterwards" state, so a
+            brand-new customer who scanned a table's QR code still ends up
+            on that table's menu after registering and signing in. */}
         <p className="text-center text-brand-charcoal/70 text-sm mt-6">
           Don't have an account?{" "}
           <Link
             to="/register"
+            state={location.state}
             className="text-brand-orange hover:underline font-medium"
           >
             Create account

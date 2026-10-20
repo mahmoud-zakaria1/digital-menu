@@ -1,12 +1,13 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { registerSchema, type RegisterFormData } from "../schemas/auth.schema";
 import { useRegisterMutation } from "../authApiSlice";
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [registerUser, { isLoading }] = useRegisterMutation();
 
   // 1️⃣ Initialize Form with Zod Validation
@@ -23,7 +24,10 @@ export const RegisterPage = () => {
     try {
       const response = await registerUser(data).unwrap();
       toast.success(response.message || "Account created successfully!");
-      navigate("/login");
+      // Carry the "where to go afterwards" state over to the login page
+      // (see LoginPage): registering doesn't sign the customer in, so
+      // without this a scanned table's QR link would be dropped here.
+      navigate("/login", { state: location.state });
     } catch (err: unknown) {
       const errorObj = err as { data?: { message?: string; error?: string } };
       const errorMessage =
@@ -133,6 +137,7 @@ export const RegisterPage = () => {
           Already have an account?{" "}
           <Link
             to="/login"
+            state={location.state}
             className="text-brand-orange hover:underline font-medium"
           >
             Sign in
