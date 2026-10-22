@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Navbar } from "../../../components/Navbar";
@@ -35,22 +35,19 @@ const STATUS_COPY: Record<OrderStatus, { title: string; subtitle: string }> = {
   },
 };
 
-// An online order that hasn't been paid yet is NOT waiting on the kitchen -
-// it is waiting on the customer's payment, so it gets its own wording.
 const PAYMENT_COPY = {
   title: "Complete your payment",
   subtitle: "Your order is sent to the kitchen once the payment is confirmed.",
 };
 
-// How often to re-check an unpaid online order while the page is open.
-// Only a safety net: the webhook normally arrives within seconds and the
-// socket delivers it instantly, but the socket can drop and a missed event
-// is never replayed.
 const PAYMENT_POLL_INTERVAL_MS = 5000;
+const PAYMENT_SLOW_AFTER_MS = 60000;
 
 export const OrderTrackingPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const [isPaymentSlow, setIsPaymentSlow] = useState(false);
 
   const {
     data: order,
@@ -61,16 +58,10 @@ export const OrderTrackingPage = () => {
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
   const [createPayment, { isLoading: isRetrying }] = useCreatePaymentMutation();
 
-  // 1️⃣ Only listen while there's still something to hear about. Before the
-  // order has loaded we connect optimistically; once it's completed or
-  // cancelled the socket is closed.
   const isActive =
     !order || (order.status !== "completed" && order.status !== "cancelled");
   const { isLive } = useOrderTracking(isActive ? id : undefined);
 
-  // 2️⃣ Payment states of an ONLINE order that is still pending. Everything
-  // shown here comes from the HMAC-verified webhook (via REST/socket) -
-  // the query params Paymob appends to the redirect are never trusted.
   const needsPayment =
     order?.paymentMethod === "online" &&
     order.paymentStatus !== "paid" &&
@@ -78,17 +69,24 @@ export const OrderTrackingPage = () => {
   const isAwaitingPayment = needsPayment && order?.paymentStatus === "pending";
   const paymentFailed = needsPayment && order?.paymentStatus === "failed";
 
-  // 3️⃣ The customer usually lands back here BEFORE the webhook does, so
-  // keep asking the server while the payment is unconfirmed.
-  useEffect(() => {
-    if (!isAwaitingPayment) return;
+// 3️⃣ Poll server and set a slow-payment warning timer after 60s
+useEffect(() => {
+  if (!isAwaitingPayment) return;
 
-    const intervalId = setInterval(() => {
-      void refetch();
-    }, PAYMENT_POLL_INTERVAL_MS);
+  const slowTimerId = setTimeout(() => {
+    setIsPaymentSlow(true);
+  }, PAYMENT_SLOW_AFTER_MS);
 
-    return () => clearInterval(intervalId);
-  }, [isAwaitingPayment, refetch]);
+  const intervalId = setInterval(() => {
+    void refetch();
+  }, PAYMENT_POLL_INTERVAL_MS);
+
+  return () => {
+    clearTimeout(slowTimerId);
+    clearInterval(intervalId);
+    setIsPaymentSlow(false);
+  };
+}, [isAwaitingPayment, refetch]);
 
   const handleCancel = async () => {
     if (!order) return;
@@ -103,7 +101,6 @@ export const OrderTrackingPage = () => {
     }
   };
 
-  // 4️⃣ "Try payment again": each call starts a fresh payment attempt
   const handleRetryPayment = async () => {
     if (!order) return;
 
@@ -159,11 +156,30 @@ export const OrderTrackingPage = () => {
           <>
             {/* 5️⃣ Payment banners (online orders only) */}
             {isAwaitingPayment && (
-              <div className="bg-brand-peach border border-brand-orange/30 text-brand-charcoal text-sm rounded-xl p-4 flex items-center gap-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-orange flex-shrink-0" />
-                <span>
-                  Confirming your payment... this usually takes a few seconds.
-                </span>
+              <div
+                className={`border text-sm rounded-xl p-4 flex items-center gap-3 transition-colors ${
+                  isPaymentSlow
+                    ? "bg-amber-50 border-amber-300 text-amber-900"
+                    : "bg-brand-peach border-brand-orange/30 text-brand-charcoal"
+                }`}
+              >
+                <div
+                  className={`animate-spin rounded-full h-5 w-5 border-b-2 flex-shrink-0 ${
+                    isPaymentSlow ? "border-amber-600" : "border-brand-orange"
+                  }`}
+                />
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    {isPaymentSlow
+                      ? "Payment confirmation is taking longer than usual."
+                      : "Confirming your payment... this usually takes a few seconds."}
+                  </p>
+                  {isPaymentSlow && (
+                    <p className="text-xs text-amber-700/80">
+                      If you already paid, please wait a moment while we confirm with Paymob. If you didn't complete payment on Paymob, you can retry using the button below.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -204,8 +220,6 @@ export const OrderTrackingPage = () => {
                 )}
               </div>
 
-              {/* aria-live so a screen reader announces status changes as
-                  they arrive over the socket */}
               <div aria-live="polite">
                 <h1 className="text-xl font-bold text-brand-charcoal">
                   {statusCopy.title}
@@ -234,10 +248,6 @@ export const OrderTrackingPage = () => {
                 )}
               </div>
 
-              {/* Names and quantities only - an order stores meal refs plus
-                  one server-calculated total, not a price per line, so a
-                  per-line price here could drift from the total if a meal's
-                  price changed after the order was placed. */}
               <ul className="space-y-1.5 text-sm text-brand-charcoal/70">
                 {order.meals.map((item, idx) => (
                   <li key={idx}>
@@ -266,6 +276,17 @@ export const OrderTrackingPage = () => {
             </section>
 
             <div className="flex gap-3">
+              {needsPayment && (
+                <button
+                  type="button"
+                  onClick={handleRetryPayment}
+                  disabled={isRetrying}
+                  className="flex-1 py-3 rounded-xl bg-brand-orange hover:bg-brand-orange-dark text-white font-semibold transition disabled:opacity-50 cursor-pointer"
+                >
+                  {isRetrying ? "Redirecting..." : "Pay Now"}
+                </button>
+              )}
+
               {order.status === "pending" && (
                 <button
                   type="button"
@@ -279,7 +300,7 @@ export const OrderTrackingPage = () => {
               <button
                 type="button"
                 onClick={() => navigate("/menu")}
-                className="flex-1 py-3 rounded-xl bg-brand-orange hover:bg-brand-orange-dark text-white font-semibold transition cursor-pointer"
+                className="flex-1 py-3 rounded-xl bg-brand-peach text-brand-charcoal hover:bg-brand-peach/70 font-semibold transition cursor-pointer"
               >
                 Back to Menu
               </button>
