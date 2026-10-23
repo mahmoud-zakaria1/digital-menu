@@ -1,12 +1,21 @@
-name: CI
+name: Backend CI
 
-# 1️⃣ Run on every push to main and on every pull request.
-# Limiting `push` to main (instead of all branches) avoids running the same
-# commit twice - once for the push and once for its pull request.
+# 1️⃣ Run on every push to main and on every pull request - but ONLY when
+# something that can affect the backend changed. This repo holds both apps,
+# so without the paths filter a CSS tweak in Frontend-POS would spin up a
+# Mongo container and run the whole backend suite for nothing. The workflow
+# file itself is listed too, so editing the CI also triggers a run to prove
+# the new version works.
 on:
   push:
     branches: [main]
+    paths:
+      - "Backend-POS/**"
+      - ".github/workflows/backend-ci.yml"
   pull_request:
+    paths:
+      - "Backend-POS/**"
+      - ".github/workflows/backend-ci.yml"
 
 # 2️⃣ The workflow only needs to READ the repo. Least privilege: if a
 # dependency ever runs something malicious during install/test, the token
@@ -17,7 +26,7 @@ permissions:
 # 3️⃣ A newer push to the same branch cancels the older, still-running
 # check - it's about to be outdated anyway, and this saves CI minutes.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,7 +36,14 @@ jobs:
     # instead of burning the default 6 hours.
     timeout-minutes: 10
 
-    # 4️⃣ A throwaway MongoDB that lives only for this run. This is on
+    # 4️⃣ Every `run:` step below executes inside Backend-POS. Without this
+    # they would run at the repo root, where there is no package.json, and
+    # `npm ci` would fail immediately.
+    defaults:
+      run:
+        working-directory: Backend-POS
+
+    # 5️⃣ A throwaway MongoDB that lives only for this run. This is on
     # purpose NOT the Atlas cluster: tests delete every collection after
     # each test (see tests/setup.ts), parallel runs would wipe each other's
     # data, and it would mean storing the Atlas password as a CI secret.
@@ -44,7 +60,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-    # 5️⃣ Fake values, never real secrets: the tests only need SOMETHING to
+    # 6️⃣ Fake values, never real secrets: the tests only need SOMETHING to
     # sign tokens and webhooks with. tests/setup.ts appends "/pos-test" to
     # MONGODB_URI, so it ends up on the container's own pos-test database.
     env:
@@ -60,16 +76,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          # Caches ~/.npm between runs so installs take seconds, not minutes
+          # Caches ~/.npm between runs so installs take seconds, not minutes.
+          # The lock file isn't at the repo root, so the cache has to be told
+          # where to find it - otherwise setup-node fails with "Dependencies
+          # lock file is not found".
           cache: npm
+          cache-dependency-path: Backend-POS/package-lock.json
 
-      # 6️⃣ `npm ci` (not `npm install`): installs EXACTLY what
+      # 7️⃣ `npm ci` (not `npm install`): installs EXACTLY what
       # package-lock.json says and fails if it doesn't match package.json.
       # That's the guarantee we want in CI - the same versions every time.
       - name: Install dependencies
         run: npm ci
 
-      # 7️⃣ Type-check only, no output files. Catches type errors that
+      # 8️⃣ Type-check only, no output files. Catches type errors that
       # `tsx` ignores at runtime (it strips types without checking them).
       - name: Type check
         run: npx tsc --noEmit
