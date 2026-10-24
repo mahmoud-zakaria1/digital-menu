@@ -27,7 +27,7 @@ export const ACCESS_TOKEN_COOKIE_NAME = "accessToken";
 // it was set with - so login, renewal and logout must all share these.
 export const ACCESS_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: (config.isProduction ? "none" : "lax") as "none" | "lax",
+  sameSite: "lax" as const,
   secure: config.isProduction,
 } as const;
 

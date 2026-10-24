@@ -18,6 +18,7 @@ import { socketAuthMiddleware } from "./middlewares/socketAuth.js";
 import Order from "./models/order.schema.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
+import { serveFrontend } from "./middlewares/serveFrontend.js";
 
 // 1️⃣ Initialize Express App & HTTP Server
 const app = express();
@@ -64,7 +65,7 @@ app.use("/api/users/login", authLimiter);
 app.use("/api/users/register", authLimiter);
 
 // 5️⃣ Root Route (Health Check / Welcome Endpoint)
-app.get("/", (req: Request, res: Response) => {
+app.get("/api/health", (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Digital Menu POS Backend API is up and running!",
@@ -81,6 +82,7 @@ app.use("/api/categories", categoryRouter);
 app.use("/api/payments", paymentRouter);
 app.use("/api/uploads", uploadRouter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+serveFrontend(app);
 
 // 7️⃣ Catch-all 404 Handler for Unmatched Routes
 app.use((req: Request, res: Response, next: NextFunction) => {
