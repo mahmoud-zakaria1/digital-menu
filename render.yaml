@@ -1,0 +1,80 @@
+# 1️⃣ ONE service for the whole app. Express serves the React build itself
+# (see serveFrontend.ts), so the frontend and the API share a single origin:
+# no CORS, first-party cookies that Safari accepts, and the WebSocket needs
+# no separate proxy.
+services:
+  - type: web
+    name: digital-menu
+    runtime: node
+    # Free instance: no card needed, but it sleeps after ~15 idle minutes
+    # (the first request after that takes about a minute to wake it).
+    plan: free
+    # Closest Render region to Egypt
+    region: frankfurt
+    branch: main
+    # Every push to main redeploys, so the live demo never drifts from GitHub
+    autoDeploy: true
+
+    # 2️⃣ Build the frontend first, then install the backend's dependencies.
+    # --include=dev on the frontend is deliberate: NODE_ENV is "production"
+    # on Render, which makes `npm ci` skip devDependencies - and Vite,
+    # TypeScript and Tailwind (all devDependencies) are exactly what the
+    # build needs. The backend runs through tsx, which is a regular
+    # dependency, so a production-only install is enough there.
+    buildCommand: >-
+      npm --prefix Frontend-POS ci --include=dev &&
+      npm --prefix Frontend-POS run build &&
+      npm --prefix Backend-POS ci
+
+    # 3️⃣ Start from inside Backend-POS: serveFrontend.ts locates the React
+    # build relative to the working directory (../Frontend-POS/dist).
+    startCommand: cd Backend-POS && npm start
+
+    # Render only routes traffic to a new deploy once this answers 200, so a
+    # broken release never replaces a working one.
+    healthCheckPath: /api/health
+
+    envVars:
+      # Production behaviour (rate limiting, secure cookies, the JWT_SECRET
+      # guard) all key off NODE_ENV, so it's set explicitly rather than
+      # relying on a platform default.
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+
+      # 4️⃣ Vite bakes VITE_* values into the bundle at BUILD time, so this
+      # has to exist during the build step. A relative path means "the same
+      # origin as the page" (see api/socket.ts for how the socket uses it).
+      - key: VITE_API_BASE_URL
+        value: /api
+
+      # 5️⃣ Generated once by Render and kept private. Not the dev secret,
+      # so nothing from a local .env can ever be used to forge a production
+      # session.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # 6️⃣ Real secrets are NEVER written in this file (it's committed to a
+      # public repo). `sync: false` makes Render ask for each value in its
+      # dashboard instead.
+      - key: MONGODB_URI
+        sync: false
+      # Public address of THIS service. Paymob sends the customer back to
+      # it after paying, so it must be the real URL, not localhost.
+      - key: FRONTEND_URL
+        sync: false
+      - key: PAYMOB_PUBLIC_KEY
+        sync: false
+      - key: PAYMOB_SECRET_KEY
+        sync: false
+      - key: PAYMOB_INTEGRATION_ID
+        sync: false
+      - key: PAYMOB_HMAC_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
