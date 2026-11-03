@@ -10,10 +10,11 @@ const options: swaggerJsdoc.Options = {
         "Restaurant POS backend with real-time order tracking, role-based access, and Paymob payment integration.",
     },
     servers: [
+      { url: "/", description: "This server" },
       { url: "http://localhost:8000", description: "Local development" },
       {
-        url: "https://digital-menu-production-4182.up.railway.app",
-        description: "Production (Railway)",
+        url: "https://digital-menu-na6l.onrender.com",
+        description: "Production (Render)",
       },
     ],
     components: {
