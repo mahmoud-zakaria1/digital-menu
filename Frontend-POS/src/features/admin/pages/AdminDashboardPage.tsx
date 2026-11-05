@@ -88,14 +88,22 @@ export const AdminDashboardPage = () => {
       <div className="max-w-3xl mx-auto p-4 md:p-8">
         <AnalyticsCards />
 
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="flex gap-2">
+        {/* 1️⃣ Tabs + "Add" button. flex-wrap is what keeps this row inside
+            the screen: on a ~360px phone the three tabs and the Add button
+            together are wider than the viewport, and without wrapping the
+            row pushed the whole PAGE wider than the screen - the Add button
+            got cut off and zooming out revealed an empty strip on the right.
+            Now the button simply drops to its own line on narrow screens
+            (ml-auto keeps it on the right) and sits beside the tabs on
+            wider ones. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="flex flex-wrap gap-2">
             {(["meals", "categories", "tables"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition cursor-pointer ${
+                className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium capitalize transition cursor-pointer ${
                   tab === t
                     ? "bg-brand-orange text-white"
                     : "bg-brand-peach text-brand-charcoal hover:bg-brand-orange/20"
@@ -109,7 +117,7 @@ export const AdminDashboardPage = () => {
           <button
             type="button"
             onClick={handleAdd}
-            className="px-4 py-2 rounded-lg bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-semibold whitespace-nowrap transition cursor-pointer"
+            className="ml-auto px-4 py-2 rounded-lg bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-semibold whitespace-nowrap transition cursor-pointer"
           >
             + Add {ADD_LABEL[tab]}
           </button>

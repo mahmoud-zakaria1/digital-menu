@@ -62,9 +62,15 @@ export const MealsTable = ({ onEdit }: MealsTableProps) => {
           typeof meal.category === "string" ? "—" : meal.category.name;
 
         return (
+          // 1️⃣ flex-wrap + the actions group below: on a phone the image,
+          // the name, the status badge and both buttons can't share one
+          // line without squeezing the name down to "New ...". So the
+          // name takes the first line next to the image, and the badge +
+          // Edit/Delete drop to a line of their own. On wider screens
+          // (sm and up) everything stays on a single row as before.
           <div
             key={meal._id}
-            className="flex items-center gap-4 p-4 border-b border-brand-peach last:border-b-0"
+            className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4 border-b border-brand-peach last:border-b-0"
           >
             <div className="w-14 h-14 rounded-lg overflow-hidden bg-brand-peach flex-shrink-0">
               {meal.image ? (
@@ -89,32 +95,34 @@ export const MealsTable = ({ onEdit }: MealsTableProps) => {
               </p>
             </div>
 
-            <span
-              className={`text-xs font-medium px-2 py-1 rounded-full ${
-                meal.isAvailable
-                  ? "bg-green-50 text-green-600"
-                  : "bg-red-50 text-red-500"
-              }`}
-            >
-              {meal.isAvailable ? "Available" : "Unavailable"}
-            </span>
+            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+              <span
+                className={`text-xs font-medium px-2 py-1 rounded-full ${
+                  meal.isAvailable
+                    ? "bg-green-50 text-green-600"
+                    : "bg-red-50 text-red-500"
+                }`}
+              >
+                {meal.isAvailable ? "Available" : "Unavailable"}
+              </span>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onEdit(meal)}
-                className="text-sm font-medium text-brand-orange hover:underline cursor-pointer"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(meal)}
-                disabled={isDeleting}
-                className="text-sm font-medium text-red-500 hover:text-red-600 disabled:opacity-50 cursor-pointer"
-              >
-                Delete
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => onEdit(meal)}
+                  className="text-sm font-medium text-brand-orange hover:underline cursor-pointer"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(meal)}
+                  disabled={isDeleting}
+                  className="text-sm font-medium text-red-500 hover:text-red-600 disabled:opacity-50 cursor-pointer"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         );
