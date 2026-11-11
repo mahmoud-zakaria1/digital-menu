@@ -11,3 +11,20 @@
   --color-brand-orange-dark: #b23a1b;
   --color-brand-peach: #fde8da;
 }
+
+/* 1️⃣ Safety net against horizontal overflow. One element that is a few
+   pixels too wide is enough to make a phone lay the WHOLE page out wider
+   than the screen: every card gets cut off on the right, fixed bars
+   overshoot the edge, and the sticky navbar drifts when the page is
+   scrolled. `clip` stops the page from ever growing sideways, so the worst
+   case is one clipped element instead of a broken page.
+   It is `clip` and not `hidden` on purpose: `hidden` turns the element
+   into a scroll container, and that silently breaks `position: sticky`
+   for every header in the app, while `clip` does not. This hides the
+   symptom, it does not remove the cause - the offending element still
+   has to be found and fixed. */
+@layer base {
+  body {
+    overflow-x: clip;
+  }
+}

@@ -39,65 +39,75 @@ export const CartLineItem = ({ line }: CartLineItemProps) => {
   const { meal, quantity } = line;
 
   return (
-    <div className="flex items-center gap-3 py-4 border-b border-brand-peach last:border-b-0">
-      <div className="w-16 h-16 rounded-xl overflow-hidden bg-brand-peach flex-shrink-0">
-        {meal.image && !imageFailed ? (
-          <img
-            src={meal.image}
-            alt={meal.name}
-            onError={() => setImageFailed(true)}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-brand-orange/40 text-xs">
-            No image
-          </div>
-        )}
-      </div>
+    <div className="py-4 border-b border-brand-peach last:border-b-0">
+      {/* 1️⃣ Two rows instead of one. Image, name, price, stepper, line
+          total and the remove button can't share a single line on a phone:
+          the name was squeezed down to "N..." and the row ran past the
+          edge. The first row now holds what identifies the item (image,
+          name, unit price, remove); the second row holds what changes it
+          (the stepper) and what it costs (the line total). */}
+      <div className="flex items-center gap-3">
+        <div className="w-16 h-16 rounded-xl overflow-hidden bg-brand-peach flex-shrink-0">
+          {meal.image && !imageFailed ? (
+            <img
+              src={meal.image}
+              alt={meal.name}
+              onError={() => setImageFailed(true)}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-brand-orange/40 text-xs">
+              No image
+            </div>
+          )}
+        </div>
 
-      <div className="flex-1 min-w-0">
-        <h3 className="font-semibold text-brand-charcoal truncate">
-          {meal.name}
-        </h3>
-        <p className="text-sm text-brand-charcoal/50">
-          {meal.price.toFixed(2)} EGP
-        </p>
-      </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-brand-charcoal truncate">
+            {meal.name}
+          </h3>
+          <p className="text-sm text-brand-charcoal/50">
+            {meal.price.toFixed(2)} EGP
+          </p>
+        </div>
 
-      <div className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={() => dispatch(decrementItem({ mealId: meal._id }))}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-brand-peach hover:bg-brand-orange/20 text-brand-charcoal text-xl leading-none font-bold transition cursor-pointer"
-          aria-label={`Decrease ${meal.name} quantity`}
+          onClick={() => dispatch(removeItem({ mealId: meal._id }))}
+          className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-brand-charcoal/40 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
+          aria-label={`Remove ${meal.name} from cart`}
         >
-          −
+          🗑
         </button>
-        <span className="text-sm font-semibold text-brand-charcoal min-w-5 text-center">
-          {quantity}
+      </div>
+
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => dispatch(decrementItem({ mealId: meal._id }))}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-brand-peach hover:bg-brand-orange/20 text-brand-charcoal text-xl leading-none font-bold transition cursor-pointer"
+            aria-label={`Decrease ${meal.name} quantity`}
+          >
+            −
+          </button>
+          <span className="text-sm font-semibold text-brand-charcoal min-w-6 text-center">
+            {quantity}
+          </span>
+          <button
+            type="button"
+            onClick={() => dispatch(incrementItem({ mealId: meal._id }))}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-brand-orange hover:bg-brand-orange-dark text-white text-xl leading-none font-bold transition cursor-pointer"
+            aria-label={`Increase ${meal.name} quantity`}
+          >
+            +
+          </button>
+        </div>
+
+        <span className="font-bold text-brand-charcoal">
+          {(meal.price * quantity).toFixed(2)} EGP
         </span>
-        <button
-          type="button"
-          onClick={() => dispatch(incrementItem({ mealId: meal._id }))}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-brand-orange hover:bg-brand-orange-dark text-white text-xl leading-none font-bold transition cursor-pointer"
-          aria-label={`Increase ${meal.name} quantity`}
-        >
-          +
-        </button>
       </div>
-
-      <span className="font-bold text-brand-charcoal w-20 text-right">
-        {(meal.price * quantity).toFixed(2)} EGP
-      </span>
-
-      <button
-        type="button"
-        onClick={() => dispatch(removeItem({ mealId: meal._id }))}
-        className="w-10 h-10 flex items-center justify-center rounded-full text-brand-charcoal/40 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
-        aria-label={`Remove ${meal.name} from cart`}
-      >
-        🗑
-      </button>
     </div>
   );
 };
