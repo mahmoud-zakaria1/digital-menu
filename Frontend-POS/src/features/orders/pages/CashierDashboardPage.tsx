@@ -85,7 +85,11 @@ export const CashierDashboardPage = () => {
         <LogoutButton />
       </header>
 
-      <div className="p-4 md:p-8">
+      {/* 1️⃣ Less side padding on phones (p-2, then p-4 / p-8 as the screen
+          grows): the board is the whole point of this page, so the cards
+          get as much of a small screen's width as possible instead of
+          leaving wide empty margins on both sides. */}
+      <div className="p-2 sm:p-4 md:p-8">
         {isLoading && (
           <div className="flex justify-center py-16">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-orange"></div>
@@ -99,7 +103,7 @@ export const CashierDashboardPage = () => {
         )}
 
         {!isLoading && !isError && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <KanbanColumn
               title="Pending"
               orders={pendingOrders}

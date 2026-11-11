@@ -17,7 +17,12 @@ export const KanbanColumn = ({
   busyOrderId,
 }: KanbanColumnProps) => {
   return (
-    <div className="bg-brand-peach/30 rounded-2xl p-3 flex flex-col min-h-[60vh]">
+    // 1️⃣ On a phone the three columns are stacked, so a 60vh minimum height
+    // on each one meant two screens of empty beige before the next column
+    // even started. The minimum now applies from md up, where the columns
+    // sit side by side and a tall board makes sense. The padding is also
+    // tighter on phones, to give the cards more of the screen's width.
+    <div className="bg-brand-peach/30 rounded-2xl p-2 sm:p-3 flex flex-col md:min-h-[60vh]">
       <div className="flex items-center justify-between px-2 py-1 mb-2">
         <h2 className="font-semibold text-brand-charcoal">{title}</h2>
         <span className="text-xs font-semibold text-brand-charcoal/50 bg-white px-2 py-0.5 rounded-full">

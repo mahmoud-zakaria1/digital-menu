@@ -47,8 +47,14 @@ export const OrderCard = ({
 
   return (
     <div className="bg-white rounded-xl border border-brand-peach p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+      {/* 1️⃣ flex-wrap on both rows below is what keeps a card inside a phone
+          screen. Two badges ("Table 5", "Paid online") plus the order id
+          and time are wider than a ~360px card, and a row that can't wrap
+          just pushes past the edge - which widens the whole page, so the
+          sticky header drifts sideways when the cashier scrolls. Now the id
+          drops under the badges when there isn't room. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-semibold text-brand-orange bg-brand-peach px-2.5 py-1 rounded-full">
             {getOrderTypeLabel(order)}
           </span>
@@ -62,19 +68,24 @@ export const OrderCard = ({
             {isPaidOnline ? "Paid online" : "Cash"}
           </span>
         </div>
-        <span className="text-xs text-brand-charcoal/40">
+        <span className="text-xs text-brand-charcoal/40 whitespace-nowrap">
           #{getShortOrderId(order)}
           {placedAt && ` · ${placedAt}`}
         </span>
       </div>
 
-      <div>
-        <p className="text-sm font-semibold text-brand-charcoal">
+      {/* 2️⃣ break-words: names, phones and addresses are free text from the
+          customer, so one long unbroken string must wrap instead of
+          stretching the card. */}
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-brand-charcoal break-words">
           {customerName}
         </p>
-        <p className="text-xs text-brand-charcoal/50">{order.phone}</p>
+        <p className="text-xs text-brand-charcoal/50 break-words">
+          {order.phone}
+        </p>
         {order.address && (
-          <p className="text-xs text-brand-charcoal/50 mt-0.5">
+          <p className="text-xs text-brand-charcoal/50 mt-0.5 break-words">
             {order.address}
           </p>
         )}
@@ -83,14 +94,14 @@ export const OrderCard = ({
       <ul className="text-sm text-brand-charcoal/70 space-y-1">
         {order.meals.map((item, idx) => (
           <li key={idx} className="flex justify-between">
-            <span>
+            <span className="min-w-0 break-words">
               {item.quantity} × {getMealName(item.meal)}
             </span>
           </li>
         ))}
       </ul>
 
-      <div className="flex items-center justify-between pt-2 border-t border-brand-peach">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-brand-peach">
         <span className="font-bold text-brand-charcoal text-sm">
           {order.totalPrice.toFixed(2)} EGP
         </span>
