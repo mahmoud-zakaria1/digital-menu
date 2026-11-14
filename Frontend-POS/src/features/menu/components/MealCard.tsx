@@ -67,7 +67,16 @@ export const MealCard = ({ meal, onOpen }: MealCardProps) => {
           </p>
         )}
 
-        <div className="flex items-center justify-between mt-3">
+        {/* 1️⃣ flex-wrap is what keeps the stepper inside the card. On a
+            phone the card's content area is only ~120px wide (a two-column
+            grid minus the card padding), and a price plus a "-  1  +"
+            stepper of two 48px buttons needs roughly 160px, so the "+"
+            was pushed out past the card edge and clipped. The price now
+            takes the first line and the stepper drops to its own full-width
+            line; on wider cards (sm and up) they sit side by side again.
+            The "+" on its own (nothing in the cart yet) still fits next to
+            the price, so it doesn't wrap until an item is added. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 mt-3">
           <span className="font-bold text-brand-charcoal">
             {(meal.price * (quantityInCart || 1)).toFixed(2)} EGP
             {quantityInCart > 1 && (
@@ -98,22 +107,30 @@ export const MealCard = ({ meal, onOpen }: MealCardProps) => {
               +
             </button>
           ) : (
-            <div className="flex items-center gap-2" onClick={stopPropagation}>
+            // 2️⃣ Full width with the quantity stretching between the two
+            // buttons on a phone, so the three controls spread across the
+            // card instead of huddling to one side. The buttons are 44px
+            // (Apple's minimum touch target) below sm and 48px from sm up;
+            // 44 + 44 + a ~24px quantity fits the ~120px content area.
+            <div
+              className="flex items-center justify-between gap-2 w-full sm:w-auto"
+              onClick={stopPropagation}
+            >
               <button
                 type="button"
                 onClick={() => dispatch(decrementItem({ mealId: meal._id }))}
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-brand-peach hover:bg-brand-orange/20 text-brand-charcoal text-2xl leading-none font-bold transition cursor-pointer"
+                className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-brand-peach hover:bg-brand-orange/20 text-brand-charcoal text-2xl leading-none font-bold transition cursor-pointer"
                 aria-label={`Decrease ${meal.name} quantity`}
               >
                 −
               </button>
-              <span className="text-sm font-semibold text-brand-charcoal min-w-4 text-center">
+              <span className="flex-1 sm:flex-none text-sm font-semibold text-brand-charcoal min-w-4 text-center">
                 {quantityInCart}
               </span>
               <button
                 type="button"
                 onClick={() => dispatch(incrementItem({ mealId: meal._id }))}
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-brand-orange hover:bg-brand-orange-dark text-white text-2xl leading-none font-bold transition cursor-pointer"
+                className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full bg-brand-orange hover:bg-brand-orange-dark text-white text-2xl leading-none font-bold transition cursor-pointer"
                 aria-label={`Increase ${meal.name} quantity`}
               >
                 +
